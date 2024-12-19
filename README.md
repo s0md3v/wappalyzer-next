@@ -9,9 +9,12 @@ This project is a command line tool and python library that uses [Wappalyzer](ht
 
 ## Installation
 
+For CLI usage:
 ```bash
 pipx install wappalyzer
 ```
+
+To use it as a library, install it with `pip` inside an isolated container e.g. `venv` or `docker`. You may also `--break-system-packages` to do a 'regular' install but it is not recommended.
 
 You will also need to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases).
 Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
