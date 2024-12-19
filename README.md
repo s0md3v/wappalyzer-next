@@ -1,9 +1,11 @@
-# Wappalyzer.Next
+# Wappalyzer Next
 
-This is [Wappalyzer](https://www.wappalyzer.com/) browser extenstion but as a command line tool and python library. Unlike other projects emerged after discontinuation of the official open source project, this one uses the official browser extension for accurate and up-to-date results.
+This project is a command line tool and python library that uses [Wappalyzer](https://www.wappalyzer.com/) extension (and its fingerprints) to detect technologies. Other projects emerged after discontinuation of the official open source project are using outdated fingerpints and lack accuracy when used on dynamic web-apps, this project bypasses those limitations.
 
-If you wish to use it as a command line tool, see the "[For Users](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-users)" section.
-To use it a python library, see the "[For Developers](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-developers)" section.
+- [Installation](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#installation)
+- [For Users](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-users)
+- [For Developers](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-developers)
+- [FAQ](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#faq)
 
 ## Installation
 
