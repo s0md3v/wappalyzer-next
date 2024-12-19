@@ -26,7 +26,13 @@ def create_result(technologies):
 
 def pretty_print(result):
     for url, value in result.items():
-        print(bold(green(url)), ', '.join(value.keys()))
+        output_string = bold(green(url)) + ' '
+        for name, data in value.items():
+            if data['version']:
+                output_string += f"{name} v{data['version']}, "
+            else:
+                output_string += f"{name}, "
+        print(output_string.rstrip(', '))
 
 def write_to_file(filepath, data, format='json'):
     if format == 'json':
