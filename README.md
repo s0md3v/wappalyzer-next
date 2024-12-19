@@ -1,18 +1,51 @@
 # Wappalyzer.Next
 
-This is [Wappalyzer](https://www.wappalyzer.com/) browser extenstion but as a command line tool and python library. Unlike other projects emerged after the official open source project, this one uses the official extension for accurate results.
+This is [Wappalyzer](https://www.wappalyzer.com/) browser extenstion but as a command line tool and python library. Unlike other projects emerged after discontinuation of the official open source project, this one uses the official browser extension for accurate and up-to-date results.
 
-If you wish to use it as a tool, see the "For Users" section.
-To use it a python library, see the "For Developers" section.
+If you wish to use it as a command line tool, see the "[For Users](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-users)" section.
+To use it a python library, see the "[For Developers](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-developers)" section.
 
-## For Users
-### Installation
+## Installation
 
 ```bash
 pipx install wappalyzer
 ```
 
-### Command Line Usage
+You will also need to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases).
+Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
+
+<details>
+<summary>Setting up geckodriver</summary>
+
+### Step 1: Download GeckoDriver
+1. Visit the official GeckoDriver releases page on GitHub:  
+   [https://github.com/mozilla/geckodriver/releases](https://github.com/mozilla/geckodriver/releases)
+2. Download the version compatible with your system:
+   - For Windows: `geckodriver-vX.XX.X-win64.zip`
+   - For macOS: `geckodriver-vX.XX.X-macos.tar.gz`
+   - For Linux: `geckodriver-vX.XX.X-linux64.tar.gz`
+3. Extract the downloaded file to a folder of your choice.
+
+### Step 2: Add GeckoDriver to the System Path
+To ensure Selenium can locate the GeckoDriver executable:
+- **Windows**:
+  1. Move the `geckodriver.exe` to a directory (e.g., `C:\WebDrivers\`).
+  2. Add this directory to the system's PATH:
+     - Open **Environment Variables**.
+     - Under **System Variables**, find and select the `Path` variable, then click **Edit**.
+     - Click **New** and enter the directory path where `geckodriver.exe` is stored.
+     - Click **OK** to save.
+- **macOS/Linux**:
+  1. Move the `geckodriver` file to `/usr/local/bin/` or another directory in your PATH.
+  2. Use the following command in the terminal:
+     ```bash
+     sudo mv geckodriver /usr/local/bin/
+     ```
+     Ensure `/usr/local/bin/` is in your PATH.
+</details>
+
+## For Users
+#### Command Line Usage
 
 Basic usage:
 
@@ -20,7 +53,7 @@ Basic usage:
 wappalyzer -i <url_or_file> [options]
 ```
 
-### Examples
+#### Examples
 
 Scan a single URL:
 ```bash
@@ -42,9 +75,9 @@ Export results to JSON:
 wappalyzer -i https://example.com -oJ results.json
 ```
 
-### Options
+#### Options
 
-> Note: For accuracy use 'full' scan type. 'fast' and 'balanced' do not use browser emulation.
+> Note: For accuracy use 'full' scan type (default). 'fast' and 'balanced' do not use browser emulation.
 
 - `-i`: Input URL or file containing URLs (one per line)
 - `--scan-type`: Scan type (default: 'full')
@@ -54,13 +87,13 @@ wappalyzer -i https://example.com -oJ results.json
 - `-t, --threads`: Number of concurrent threads (default: 5)
 - `-oJ`: JSON output file path
 - `-oC`: CSV output file path
-- `-c, --cookie`: Cookie string for authenticated scans
+- `-c, --cookie`: Cookie header string for authenticated scans
 
 ## For Developers
 
-The python library is a available on pypi as `wappalyzer`.
+The python library is a available on pypi as `wappalyzer` and can be imported with the same name.
 
-### Using the Library
+#### Using the Library
 
 The main function you'll interact with is `analyze()`:
 
@@ -87,7 +120,7 @@ results = analyze(
   - `'balanced'`: HTTP-based scan with more requests
   - `'full'`: Complete scan including JavaScript execution (default)
 - `threads` (int, optional): Number of threads for parallel processing (default: 3)
-- `cookie` (str, optional): Cookie string for authenticated scans
+- `cookie` (str, optional): Cookie header string for authenticated scans
 
 #### Return Value
 
@@ -110,6 +143,6 @@ Returns a dictionary with the URL as key and detected technologies as value:
 Firefox extensions are .xpi files which are essentially zip files. This makes it easier to extract data and slightly modify the extension to make this tool work.
 
 #### What is the difference between 'fast', 'balanced', and 'full' scan types?
-- 'fast': Sends a single HTTP request to the URL
-- 'balanced': Sends additional HTTP requests to .js files, /robots.txt annd does DNS queries
-- 'full': Uses the official Wappalyzer extension to scan the URL in a headless browser
+- **fast**: Sends a single HTTP request to the URL. Doesn't use the extension.
+- **balanced**: Sends additional HTTP requests to .js files, /robots.txt annd does DNS queries. Doesn't use the extension.
+- **full**: Uses the official Wappalyzer extension to scan the URL in a headless browser.
