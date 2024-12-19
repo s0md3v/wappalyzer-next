@@ -18,7 +18,7 @@ parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
 args = parser.parse_args()
 
 def analyze(url, scan_type='full', threads=3, cookie=None):
-    if args.scan_type.lower() == 'full':
+    if scan_type.lower() == 'full':
         cookies = cookie_to_cookies(cookie) if cookie else []
         driver = init_firefox_driver(cookies)
         url, detections = process_url(driver, url)
@@ -27,6 +27,9 @@ def analyze(url, scan_type='full', threads=3, cookie=None):
     return {url: http_scan(url, scan_type, cookie)}
 
 def main():
+    if not args.input_file:
+        parser.print_help()
+        exit(22)
     result_db = {}
     def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full'):
         driver = None
