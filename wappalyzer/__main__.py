@@ -11,7 +11,7 @@ from wappalyzer.browser.analyzer import init_firefox_driver, cookie_to_cookies, 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
 parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_type', default='full', type=str.lower)
-parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5)
+parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5, type=int)
 parser.add_argument('-oJ', help='json output file', dest='json_output_file')
 parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
 parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
