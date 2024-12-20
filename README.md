@@ -9,7 +9,7 @@ This project is a command line tool and python library that uses [Wappalyzer](ht
 
 ## Installation
 
-For CLI usage:
+### For CLI usage:
 ```bash
 pipx install wappalyzer
 ```
@@ -48,6 +48,29 @@ To ensure Selenium can locate the GeckoDriver executable:
      ```
      Ensure `/usr/local/bin/` is in your PATH.
 </details>
+
+### Using Docker
+1. Clone the repository:
+```bash
+git clone https://github.com/s0md3v/wappalyzer-next.git
+cd wappalyzer-next
+```
+
+2. Build and run with Docker Compose:
+```bash
+docker compose up -d
+```
+
+To scan URLs using the Docker container:
+```bash
+# Scan a single URL
+docker compose run wappalyzer -i https://example.com
+
+# Export results (will be saved in ./results directory)
+docker compose run wappalyzer -i https://example.com -oJ /app/results/output.json
+```
+
+Note: The `results` directory is mounted as a volume, for easy access to results.
 
 ## For Users
 #### Command Line Usage
@@ -139,7 +162,7 @@ Returns a dictionary with the URL as key and detected technologies as value:
     "React Router": {"version": "6", "confidence": 100, "categories": ["JavaScript frameworks"], "groups": ["Web development"]},
   "https://google.com" : {},
   "https://example.com" : {},
-}
+}}
 ```
 
 ### FAQ
