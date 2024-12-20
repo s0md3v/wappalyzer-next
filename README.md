@@ -49,7 +49,7 @@ To ensure Selenium can locate the GeckoDriver executable:
      Ensure `/usr/local/bin/` is in your PATH.
 </details>
 
-### Using Docker
+### Using Docker:
 1. Clone the repository:
 ```bash
 git clone https://github.com/s0md3v/wappalyzer-next.git
