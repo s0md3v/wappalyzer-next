@@ -9,16 +9,7 @@ This project is a command line tool and python library that uses [Wappalyzer](ht
 
 ## Installation
 
-For CLI usage:
-```bash
-pipx install wappalyzer
-```
-
-To use it as a library, install it with `pip` inside an isolated container e.g. `venv` or `docker`. You may also `--break-system-packages` to do a 'regular' install but it is not recommended.
-
-You will also need to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases).
-Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
-
+Before installing wappalyzer, you will to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases). Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
 <details>
 <summary>Setting up geckodriver</summary>
 
@@ -49,36 +40,49 @@ To ensure Selenium can locate the GeckoDriver executable:
      Ensure `/usr/local/bin/` is in your PATH.
 </details>
 
+
+#### Install as a command-line tool
+```bash
+pipx install wappalyzer
+```
+
+#### Install as a library
+To use it as a library, install it with `pip` inside an isolated container e.g. `venv` or `docker`. You may also `--break-system-packages` to do a 'regular' install but it is not recommended.
+
+#### Install with docker
+<details><summary>Steps</summary>
+
+1. Clone the repository:
+```bash
+git clone https://github.com/s0md3v/wappalyzer-next.git
+cd wappalyzer-next
+```
+
+2. Build and run with Docker Compose:
+```bash
+docker compose up -d
+```
+
+3. To scan URLs using the Docker container:
+
+- Scan a single URL:
+```bash
+docker compose run --rm wappalyzer -i https://example.com
+```
+- Scan Multiple URLs from a file:
+```bash
+docker compose run --rm wappalyzer -i https://example.com -oJ output.json
+```
+</details>
+
 ## For Users
-#### Command Line Usage
+Some common usage examples are given below, refer to list of all options for more information.
 
-Basic usage:
-
-```bash
-wappalyzer -i <url_or_file> [options]
-```
-
-#### Examples
-
-Scan a single URL:
-```bash
-wappalyzer -i https://example.com
-```
-
-Scan multiple URLs from a file:
-```bash
-wappalyzer -i urls.txt -t 10
-```
-
-Scan with authentication:
-```bash
-wappalyzer -i https://example.com -c "sessionid=abc123; token=xyz789"
-```
-
-Export results to JSON:
-```bash
-wappalyzer -i https://example.com -oJ results.json
-```
+- Scan a single URL:
+`wappalyzer -i https://example.com`
+- Scan multiple URLs from a file: `wappalyzer -i urls.txt -t 10`
+- Scan with authentication: `wappalyzer -i https://example.com -c "sessionid=abc123; token=xyz789"`
+- Export results to JSON: `wappalyzer -i https://example.com -oJ results.json`
 
 #### Options
 
@@ -139,7 +143,7 @@ Returns a dictionary with the URL as key and detected technologies as value:
     "React Router": {"version": "6", "confidence": 100, "categories": ["JavaScript frameworks"], "groups": ["Web development"]},
   "https://google.com" : {},
   "https://example.com" : {},
-}
+}}
 ```
 
 ### FAQ

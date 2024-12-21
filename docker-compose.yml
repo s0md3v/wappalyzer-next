@@ -1,0 +1,9 @@
+services:
+  wappalyzer:
+    build: .
+    volumes:
+      - .:/app
+    working_dir: /app
+  firefox:
+    image: selenium/standalone-firefox:latest
+    shm_size: '2gb'
