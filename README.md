@@ -61,10 +61,14 @@ cd wappalyzer-next
 docker compose up -d
 ```
 
-To scan URLs using the Docker container:
+3. To scan URLs using the Docker container:
+
+Scan a single URL:
 ```bash
 docker compose run --rm wappalyzer -i https://example.com
-
+```
+Scan Multiple URLs from a file:
+```bash
 docker compose run --rm wappalyzer -i https://example.com -oJ output.json
 ```
 
