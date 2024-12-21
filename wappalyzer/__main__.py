@@ -2,11 +2,12 @@ import argparse
 import queue
 import re
 import threading
+from queue import Queue
 
 from wappalyzer.core.requester import get_response
 from wappalyzer.core.analyzer import http_scan
 from wappalyzer.core.utils import pretty_print, write_to_file
-from wappalyzer.browser.analyzer import init_firefox_driver, cookie_to_cookies, process_url, merge_technologies
+from wappalyzer.browser.analyzer import DriverPool, cookie_to_cookies, process_url, merge_technologies
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
@@ -18,44 +19,32 @@ parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
 args = parser.parse_args()
 
 def analyze(url, scan_type='full', threads=3, cookie=None):
+    """Analyze a single URL"""
     if scan_type.lower() == 'full':
-        cookies = cookie_to_cookies(cookie) if cookie else []
-        driver = init_firefox_driver(cookies)
-        url, detections = process_url(driver, url)
-        driver.quit()
-        return {url: merge_technologies(detections)}
+        driver_pool = None
+        try:
+            driver_pool = DriverPool(size=1)  # Single driver for one URL
+            with driver_pool.get_driver() as driver:
+                if cookie:
+                    for cookie_dict in cookie_to_cookies(cookie):
+                        driver.add_cookie(cookie_dict)
+                url, detections = process_url(driver, url)
+                return {url: merge_technologies(detections)}
+        finally:
+            if driver_pool:
+                try:
+                    driver_pool.cleanup()
+                except Exception as e:
+                    print(f"Error during final cleanup: {str(e)}")
     return {url: http_scan(url, scan_type, cookie)}
 
 def main():
     if not args.input_file:
         parser.print_help()
         exit(22)
+    
     result_db = {}
-    def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full'):
-        driver = None
-        try:
-            while True:
-                try:
-                    url = url_queue.get_nowait()
-                except queue.Empty:
-                    break
-                print(f"Worker {worker_id}: Processing {url}")
-                detections = []
-                if scan_type == 'full':
-                    cookies = cookie_to_cookies(cookie) if cookie else []
-                    driver = init_firefox_driver(cookies)
-                    url, detections = process_url(driver, url)
-                else:
-                    detections = http_scan(url, scan_type, cookie)
-                if detections:
-                    with lock:
-                        result_queue.put((url, detections))
-                else:
-                    pass
-                url_queue.task_done()
-        finally:
-            if scan_type == 'full' and driver:
-                driver.quit()
+
 
     def process_detections(url_detections, scan_type='full'):
         result = {}
@@ -66,35 +55,103 @@ def main():
                 result[url] = detections
         return result
 
-    def process_urls(urls, threads, cookie, scan_type='full', print=False):
-        """Process multiple URLs in parallel and return results grouped by URL"""
-        url_queue = queue.Queue()
-        result_queue = queue.Queue()
-        lock = threading.Lock()
+    def process_urls(urls, num_threads=3, cookie=None, scan_type='full', should_print=False):
+        """Process multiple URLs using a driver pool"""
+        results = {}
+        driver_pool = None
         
-        for url in urls:
-            url_queue.put(url)
+        def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full'):
+            """Process URLs from the queue"""
+            try:
+                while True:
+                    try:
+                        url = url_queue.get_nowait()
+                    except queue.Empty:
+                        break
+                    
+                    print(f"Processing: {url}")
+                    try:
+                        if scan_type == 'full':
+                            with driver_pool.get_driver() as driver:
+                                if cookie:
+                                    for cookie_dict in cookie_to_cookies(cookie):
+                                        driver.add_cookie(cookie_dict)
+                                url, detections = process_url(driver, url)
+                                if detections:
+                                    with lock:
+                                        result_queue.put((url, detections))
+                        else:
+                            detections = http_scan(url, scan_type, cookie)
+                            with lock:
+                                result_queue.put((url, detections))
+                    except Exception as e:
+                        print(f"Error processing: {url}")
+                    finally:
+                        url_queue.task_done()
+            except Exception as e:
+                print(f"Worker {worker_id} encountered an error: {str(e)}")
         
-        threads_store = []
-        for i in range(threads):
-            thread = threading.Thread(
-                target=worker,
-                args=(i, url_queue, result_queue, lock, cookie, scan_type)
-            )
-            thread.start()
-            threads_store.append(thread)
-        
-        for thread in threads_store:
-            thread.join()
-        
-        url_detections = []
-        while not result_queue.empty():
-            this_result = result_queue.get()
-            if print:
-                pretty_print(process_detections([this_result], scan_type=scan_type))
-            url_detections.append(this_result)
-        
-        return process_detections(url_detections, scan_type)
+        try:
+            driver_pool = DriverPool(size=min(num_threads, 3))  # Limit max concurrent drivers
+            
+            url_queue = Queue()
+            result_queue = Queue()
+            for url in urls:
+                url_queue.put(url)
+                
+            threads = []
+            lock = threading.Lock()
+            
+            for i in range(num_threads):
+                thread = threading.Thread(
+                    target=worker,
+                    args=(i, url_queue, result_queue, lock, cookie, scan_type)
+                )
+                thread.daemon = True
+                thread.start()
+                threads.append(thread)
+                
+            # Wait for all tasks to complete
+            url_queue.join()
+            
+            # Wait for all threads to finish
+            for thread in threads:
+                thread.join(timeout=1)
+                
+            # Process results
+            url_detections = []
+            while not result_queue.empty():
+                this_result = result_queue.get()
+                if should_print:
+                    pretty_print({this_result[0]: merge_technologies(this_result[1])})
+                url_detections.append(this_result)
+            
+            # Process final results
+            for url, detections in url_detections:
+                if scan_type == 'full':
+                    results[url] = merge_technologies(detections)
+                else:
+                    results[url] = detections
+                    
+            return results
+            
+        except Exception as e:
+            print(f"Error in process_urls: {str(e)}")
+            return results
+        finally:
+            if driver_pool:
+                try:
+                    driver_pool.cleanup()
+                except Exception as e:
+                    print(f"Error during final cleanup: {str(e)}")
+                    # Try forceful cleanup if regular cleanup fails
+                    try:
+                        import psutil
+                        for proc in psutil.process_iter(['name']):
+                            if 'firefox' in proc.info['name'].lower():
+                                proc.kill()
+                    except Exception:
+                        pass
 
     if re.search(r'^https?://', args.input_file.lower()):
         result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie)
@@ -109,11 +166,12 @@ def main():
         urls = urls_file.read().splitlines()
         urls_file.close()
         should_print = True if not args.json_output_file and not args.csv_output_file else False
-        results = process_urls(urls, args.thread_num, args.cookie, args.scan_type, print=should_print)
+        results = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print)
         if args.json_output_file:
             write_to_file(args.json_output_file, results, format='json')
         elif args.csv_output_file:
             write_to_file(args.csv_output_file, results, format='csv')
 
 if __name__ == '__main__':
+    print("HUH")
     main()
