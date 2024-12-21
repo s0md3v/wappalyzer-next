@@ -63,11 +63,11 @@ docker compose up -d
 
 3. To scan URLs using the Docker container:
 
-Scan a single URL:
+- Scan a single URL:
 ```bash
 docker compose run --rm wappalyzer -i https://example.com
 ```
-Scan Multiple URLs from a file:
+- Scan Multiple URLs from a file:
 ```bash
 docker compose run --rm wappalyzer -i https://example.com -oJ output.json
 ```
