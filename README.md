@@ -63,14 +63,11 @@ docker compose up -d
 
 To scan URLs using the Docker container:
 ```bash
-# Scan a single URL
-docker compose run wappalyzer -i https://example.com
+docker compose run --rm wappalyzer -i https://example.com
 
-# Export results (will be saved in ./results directory)
-docker compose run wappalyzer -i https://example.com -oJ /app/results/output.json
+docker compose run --rm wappalyzer -i https://example.com -oJ output.json
 ```
 
-Note: The `results` directory is mounted as a volume, for easy access to results.
 
 ## For Users
 #### Command Line Usage

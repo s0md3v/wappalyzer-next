@@ -2,25 +2,8 @@ services:
   wappalyzer:
     build: .
     volumes:
-      - ./results:/app/results
-    environment:
-      - DISPLAY=:99
-
+      - .:/app
+    working_dir: /app
   firefox:
     image: selenium/standalone-firefox:latest
     shm_size: '2gb'
-    environment:
-      - SE_SCREEN_WIDTH=1920
-      - SE_SCREEN_HEIGHT=1080
-      - SE_NODE_MAX_SESSIONS=1
-    ports:
-      - "4444:4444"
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "http://localhost:4444"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-networks:
-  default:
-    name: wappalyzer-network
