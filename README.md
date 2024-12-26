@@ -96,6 +96,7 @@ Some common usage examples are given below, refer to list of all options for mor
 - `-t, --threads`: Number of concurrent threads (default: 5)
 - `-oJ`: JSON output file path
 - `-oC`: CSV output file path
+- `-oH`: HTML output file path
 - `-c, --cookie`: Cookie header string for authenticated scans
 
 ## For Developers
