@@ -15,6 +15,7 @@ parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_typ
 parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5, type=int)
 parser.add_argument('-oJ', help='json output file', dest='json_output_file')
 parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
+parser.add_argument('-oH', help='html output file', dest='html_output_file')
 parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
 args = parser.parse_args()
 
@@ -159,6 +160,8 @@ def main():
             write_to_file(args.json_output_file, result, format='json')
         elif args.csv_output_file:
             write_to_file(args.csv_output_file, result, format='csv')
+        elif args.html_output_file:
+            write_to_file(args.html_output_file, result, format='html')
         else:
             pretty_print(result)
     else:
@@ -171,7 +174,8 @@ def main():
             write_to_file(args.json_output_file, results, format='json')
         elif args.csv_output_file:
             write_to_file(args.csv_output_file, results, format='csv')
+        elif args.html_output_file:
+            write_to_file(args.html_output_file, results, format='html')
 
 if __name__ == '__main__':
-    print("HUH")
     main()
