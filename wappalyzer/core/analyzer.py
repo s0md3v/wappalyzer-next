@@ -17,11 +17,15 @@ from wappalyzer.analyzers.js import match_js
 from wappalyzer.core.requester import get_response
 from wappalyzer.core.utils import create_result
 
-def process_scripts(scheme, js, scriptSrc):
+
+def process_scripts(scheme, base_url, js, scriptSrc):
     def fetch_and_process(src):
+        # Ensure the URL is complete
+        if not src.startswith(('http://', 'https://')):
+            src = f'{base_url}/{src.lstrip("/")}'
         if src.endswith('.js') or '.js?' in src:
             js_code = get_response(src)
-            if js_code and js_code.headers['Content-Type'].startswith('application/javascript'):
+            if js_code and js_code.headers.get('Content-Type', '').startswith('application/javascript'):
                 js_dict, low_dict, js_classes = get_js(js_code.text)
                 if js_dict:
                     return {'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes, 'src': src}
@@ -33,10 +37,13 @@ def process_scripts(scheme, js, scriptSrc):
             result = future.result()
             if result:
                 js.append({'dict': result['dict'], 'low_dict': result['low_dict'], 'classes': result['classes']})
-                scriptSrc.extend(get_scriptSrc(scheme, get_response(result['src']).text))
+                scriptSrc.extend(
+                    [f'{base_url}/{new_src.lstrip("/")}' if not new_src.startswith(('http://', 'https://')) else new_src
+                     for new_src in get_scriptSrc(scheme, get_response(result['src']).text)]
+                )
+
 
 def analyze_from_response(response, scan_type):
-    # prepare common info
     soup = BeautifulSoup(response.text, 'html.parser')
     r = tldextract.extract(response.url)
     domain = r.domain + '.' + r.suffix
@@ -47,12 +54,18 @@ def analyze_from_response(response, scan_type):
     js = []
     scriptSrc = get_scriptSrc(scheme, soup)
     for script in soup.find_all('script'):
-        if not script.get('src'):
+        if script.get('src'):
+            src = script['src']
+            # Ensure the URL is complete
+            if not src.startswith(('http://', 'https://')):
+                src = f'{base_url}/{src.lstrip("/")}'
+            scriptSrc.append(src)
+        else:
             js_dict, low_dict, js_classes = get_js(script.text)
             if js_dict:
                 js.append({'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes})
     if scan_type != 'fast':
-        process_scripts(scheme, js, scriptSrc)
+        process_scripts(scheme, base_url, js, scriptSrc)
 
     if scan_type != 'fast':
         dns = get_dns(domain)
@@ -133,6 +146,7 @@ def analyze_from_response(response, scan_type):
             else:
                 new_result[tech_db[detected]['implies']] = {'version': '', 'confidence': 100}
     return create_result(new_result)
+
 
 def http_scan(url, scan_type, cookie=None):
     response = get_response(url, cookie)
