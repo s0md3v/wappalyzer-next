@@ -1,7 +1,7 @@
 import tldextract
 import concurrent.futures
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 from wappalyzer.parsers.js import get_js
 from wappalyzer.parsers.dns import get_dns
@@ -21,8 +21,7 @@ from wappalyzer.core.utils import create_result
 def process_scripts(scheme, base_url, js, scriptSrc):
     def fetch_and_process(src):
         # Ensure the URL is complete
-        if not src.startswith(('http://', 'https://')):
-            src = f'{base_url}/{src.lstrip("/")}'
+        src = urljoin(base_url, src)
         if src.endswith('.js') or '.js?' in src:
             js_code = get_response(src)
             if js_code and js_code.headers.get('Content-Type', '').startswith('application/javascript'):
@@ -37,9 +36,9 @@ def process_scripts(scheme, base_url, js, scriptSrc):
             result = future.result()
             if result:
                 js.append({'dict': result['dict'], 'low_dict': result['low_dict'], 'classes': result['classes']})
+                # Resolve new script sources to absolute URLs
                 scriptSrc.extend(
-                    [f'{base_url}/{new_src.lstrip("/")}' if not new_src.startswith(('http://', 'https://')) else new_src
-                     for new_src in get_scriptSrc(scheme, get_response(result['src']).text)]
+                    [urljoin(base_url, new_src) for new_src in get_scriptSrc(scheme, get_response(result['src']).text)]
                 )
 
 
@@ -56,9 +55,8 @@ def analyze_from_response(response, scan_type):
     for script in soup.find_all('script'):
         if script.get('src'):
             src = script['src']
-            # Ensure the URL is complete
-            if not src.startswith(('http://', 'https://')):
-                src = f'{base_url}/{src.lstrip("/")}'
+            # Resolve relative URLs to absolute URLs
+            src = urljoin(base_url, src)
             scriptSrc.append(src)
         else:
             js_dict, low_dict, js_classes = get_js(script.text)
