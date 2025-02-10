@@ -155,7 +155,7 @@ rem = """
           'https://www.wappalyzer.com/installed/?utm_source=installed&utm_medium=extension&utm_campaign=wappalyzer'
         )
       }
-    } else if (version !== previous && upgradeMessage) {
+    } else if (current && current !== previous && upgradeMessage) {
       open(
         `https://www.wappalyzer.com/upgraded/?utm_source=upgraded&utm_medium=extension&utm_campaign=wappalyzer`,
         false
@@ -198,21 +198,21 @@ try:
     else:
         print("hmm looks like there was an error friend!")
 
+    input("Enter to continue")
+
     directory = "wappalyzer/technologies"
-    output_file = "../data/technologies.json"
+    output_file = "../wappalyzer/data/technologies.json"
     data = {}
     for filename in glob.glob(os.path.join(directory, "*.json")):
         with open(filename, "r") as file:
             json_data = json.load(file)
             data.update(json_data)
-    with open(output_file, "w") as file:
+    with open(output_file, "w+") as file:
         json.dump(data, file, indent=4)
     # move wappalyzer/groups.json and wappalyzer/categories.json to current directory
-    shutil.move("wappalyzer/groups.json", "../data/groups.json")
-    shutil.move("wappalyzer/categories.json", "../data/categories.json")
+    shutil.copy("wappalyzer/groups.json", "../wappalyzer/data/groups.json")
+    shutil.copy("wappalyzer/categories.json", "../wappalyzer/data/categories.json")
 
-except FileNotFoundError:
-    print(f"Error: File '{file_path}' not found.")
 except Exception as e:
     print(f"An error occurred: {e}")
 try:
@@ -230,7 +230,7 @@ try:
     shutil.rmtree(exdir)
     os.remove(zippath)
     print(f"successfully deleted extracted directory and '{zippath}' file")
-    shutil.move(finname, "../data/wappalyzer.xpi")
+    shutil.move(finname, "../wappalyzer/data/wappalyzer.xpi")
     print(f"moved '{finname} 'to data folder, update succesfull.")
 except FileNotFoundError:
     print(f"Error: The directory '{exdir}' was not found.")
