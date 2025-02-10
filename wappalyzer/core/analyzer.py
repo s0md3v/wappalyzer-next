@@ -1,4 +1,5 @@
 import tldextract
+import os
 import concurrent.futures
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
@@ -27,7 +28,8 @@ def process_scripts(scheme, js, scriptSrc):
                     return {'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes, 'src': src}
         return None
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+    max_workers = min(10, os.cpu_count() or 1)  # Use up to 10 workers or the number of CPUs available
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {executor.submit(fetch_and_process, src): src for src in scriptSrc}
         for future in concurrent.futures.as_completed(futures):
             result = future.result()
