@@ -27,7 +27,8 @@ setup(
         'selenium',
         'tldextract',
         'beautifulsoup4',
-        'dnspython'
+        'dnspython',
+        'json-repair'
     ],
     classifiers=[
         'Development Status :: 5 - Production/Stable',
