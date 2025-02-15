@@ -1,21 +1,23 @@
 import os
 import json
 import time
+import re
 import threading
 from queue import Queue, Empty
 from contextlib import contextmanager
 
 from http.cookies import SimpleCookie
 from urllib.parse import unquote
+from json_repair import repair_json # type: ignore
 
-from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.common.by import By
+from selenium import webdriver # type: ignore
+from selenium.webdriver.firefox.options import Options # type: ignore
+from selenium.webdriver.support import expected_conditions as EC # type: ignore
+from selenium.webdriver.support.ui import WebDriverWait # type: ignore
+from selenium.webdriver.common.by import By # type: ignore
 
-from wappalyzer.core.config import extension_path
-from wappalyzer.core.utils import create_result
+from wappalyzer.core.config import extension_path # type: ignore
+from wappalyzer.core.utils import create_result # type: ignore
 
 
 class DriverPool:
@@ -131,42 +133,95 @@ def cookie_to_cookies(cookie):
             })
     return cookies
 
-def process_url(driver, url):
+def process_url(driver, url, timeout=150, threads=3):
+    """
+    Extracts components from the Wappalyzer extension while visiting a URL.
+    Handles SPAs, multiple tabs, and potential errors.
+
+    Args:
+        driver: Selenium WebDriver instance.
+        url (str): The target URL to process.
+        timeout (int): Maximum wait time for SPAs.
+
+    Returns:
+        tuple: (URL, detected components from Wappalyzer)
+    """
     try:
+        #print(f"Processing URL: {url}")
         main_tab = driver.current_window_handle
-        initial_handles = set(driver.window_handles)
-        
         driver.get(url)
-        
-        for i in range(5):
+
+        # Wait for the page to load or SPA to render
+        time.sleep(5)  # Initial wait for navigation
+
+        try:
+            WebDriverWait(driver, timeout).until(
+                lambda d: d.execute_script("return document.readyState") == "complete"
+            )
+            #print(f"Page loaded: {url}")
+        except Exception:
+            print(f"Page might still be loading (SPA detected?): {url}")
+
+        # Give time for Wappalyzer to process
+        for _ in range(5):
             driver.switch_to.window(main_tab)
             time.sleep(1)
-        
-        # after 5 seconds, process the right-most tab
+
+        # Check all available windows
         current_handles = driver.window_handles
+
         if len(current_handles) > 1:
             rightmost_handle = current_handles[-1]
             driver.switch_to.window(rightmost_handle)
-            
             result_url = driver.current_url
+
             if result_url.startswith("moz-extension://"):
-                decoded = '{' + unquote(result_url).split('{', 1)[1]
-                data = json.loads(decoded)
-                first_host = next(iter(data))
-                first_result = data[first_host]
-                
-                driver.close()
-                driver.switch_to.window(current_handles[0])
-                
-                return url, first_result['detections']
-            
+                try:
+                    decoded_url = unquote(result_url)
+
+                    # Use regex to find a JSON-like structure
+                    match = re.search(r"\{.*\}", decoded_url, re.DOTALL)
+
+                    if not match:
+                        print(f"No JSON found in response for {url}")
+                        return url, []
+
+                    raw_json = match.group(0)
+
+                    good_json_string = repair_json(raw_json)
+                    data = json.loads(good_json_string)
+
+                    if not data:
+                        return url, []
+
+                    first_host = next(iter(data), None)
+                    if not first_host:
+                        print(f"No host found in extracted data for {url}.")
+                        return url, []
+
+                    first_result = data.get(first_host, {})
+                    detections = first_result.get("detections", [])
+
+                    #print(f"Detections found for {url}: {detections}")
+
+                except (json.JSONDecodeError, ValueError) as json_error:
+                    print(f"Error decoding JSON for {url}: {json_error}")
+                    return url, []
+
+                finally:
+                    driver.close()
+                    driver.switch_to.window(main_tab)
+
+                return url, detections
+
+            # Close the unused tab if it's not a Wappalyzer result
             driver.close()
-            driver.switch_to.window(current_handles[0])
-        
+            driver.switch_to.window(main_tab)
+
         return url, []
-        
+
     except Exception as e:
-        print(f"Error processing: {url}")
+        print(f"Error processing {url}: {e}", exc_info=True)
         return url, []
 
 def merge_technologies(detections):
