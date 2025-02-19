@@ -15,13 +15,40 @@ def get_cats_and_groups(tech_name):
 
 def create_result(technologies):
     enriched = {}
+    excluded = []
+    implied = []
+    required = []
     for tech_name, value in technologies.items():
         this_tech = value.copy()
         if tech_name not in tech_db:
             this_tech['categories'], this_tech['groups'] = [], []
             continue
         this_tech['categories'], this_tech['groups'] = get_cats_and_groups(tech_name)
+        if 'requires' in tech_db[tech_name]:
+            if type(tech_db[tech_name]["requires"]) == list:
+                required.extend(tech_db[tech_name]['requires'])
+            else:
+                required.append(tech_db[tech_name]['requires'])
+        if 'implies' in tech_db[tech_name]:
+            if type(tech_db[tech_name]['implies']) == list:
+                implied.extend(tech_db[tech_name]['implies'])
+            else:
+                implied.append(tech_db[tech_name]['implies'])
+        if 'excludes' in tech_db[tech_name]:
+            if type(tech_db[tech_name]['excludes']) == list:
+                excluded.extend(tech_db[tech_name]['excludes'])
+            else:
+                excluded.append(tech_db[tech_name]['excludes'])
         enriched[tech_name] = this_tech
+
+    for tech in list(set(required).union(set(implied) - set(excluded))):
+        if tech not in enriched:
+            enriched[tech] = {
+                'version': '',
+                'confidence': 100,
+                'categories': get_cats_and_groups(tech)[0],
+                'groups': get_cats_and_groups(tech)[1]
+            }
     return enriched
 
 def pretty_print(result):
