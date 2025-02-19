@@ -140,6 +140,8 @@ def process_url(driver, url):
         
         for i in range(5):
             driver.switch_to.window(main_tab)
+            driver.execute_script("window.scrollTo(0, Math.random() * 1000)")
+            driver.execute_script("document.elementFromPoint(Math.random() * window.innerWidth, Math.random() * window.innerHeight).click()")
             time.sleep(1)
         
         # after 5 seconds, process the right-most tab
