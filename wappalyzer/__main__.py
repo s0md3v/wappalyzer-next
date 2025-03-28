@@ -13,6 +13,12 @@ from wappalyzer.core.analyzer import http_scan
 from wappalyzer.core.utils import pretty_print, write_to_file
 from wappalyzer.browser.analyzer import DriverPool, cookie_to_cookies, process_url, merge_technologies
 
+from logging import getLogger, DEBUG
+
+logger = getLogger('selenium')
+logger.setLevel(DEBUG)
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
 parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_type', default='full', type=str.lower)

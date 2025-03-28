@@ -28,6 +28,7 @@ class DriverPool:
         # Initialize the pool with drivers
         for _ in range(size):
             try:
+                print("Initializing driver")
                 driver = self._create_driver()
                 if driver:
                     self.pool.put(driver)
@@ -38,22 +39,35 @@ class DriverPool:
         """Create a new Firefox driver with retry logic"""
         for attempt in range(self.max_retries):
             try:
+                print("Creating driver")
                 options = Options()
                 # Keep existing options from init_firefox_driver
+                print("Setting preferences.permissions.default.image")
                 options.set_preference("permissions.default.image", 2)
+                print("Setting preferences.dom.ipc.plugins.enabled.libflashplayer.so")
                 options.set_preference("dom.ipc.plugins.enabled.libflashplayer.so", False)
+                print("Setting preferences.media.video_stats.enabled")
                 options.set_preference("media.video_stats.enabled", False)
+                print("Setting preferences.media.autoplay.default")
                 options.set_preference("media.autoplay.default", 5)
+                print("Setting preferences.media.autoplay.blocking_policy")
                 options.set_preference("media.autoplay.blocking_policy", 2)
+                print("Setting preferences.dom.webdriver.enabled")
                 options.set_preference("dom.webdriver.enabled", False)
+                print("Setting preferences.useAutomationExtension")
                 options.set_preference('useAutomationExtension', False)
+                print("Setting preferences.general.useragent.override")
                 options.set_preference("general.useragent.override", 
                     "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0")
+                print("Adding argument --headless")
                 options.add_argument("--headless")
-                
+                print("Creating driver")
                 driver = webdriver.Firefox(options=options)
+                print("Installing addon")
                 driver.install_addon(self.xpi_path, temporary=True)
+                print("Maximizing window")
                 driver.maximize_window()
+                print("Returning driver")
                 return driver
             except Exception as e:
                 print(f"Attempt {attempt + 1} failed: {str(e)}")
@@ -138,11 +152,15 @@ def process_url(driver, url):
         
         driver.get(url)
         
-        for i in range(5):
+        WebDriverWait(driver, 30).until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        WebDriverWait(driver, 60).until(
+            lambda driver: driver.execute_script('return document.readyState') == 'complete'
+        )
+        for i in range(10):
             driver.switch_to.window(main_tab)
             driver.execute_script("window.scrollTo(0, Math.random() * 1000)")
             driver.execute_script("var event = new MouseEvent('mousemove', { 'view': window, 'bubbles': true, 'cancelable': true, 'clientX': Math.random() * window.innerWidth, 'clientY': Math.random() * window.innerHeight }); document.dispatchEvent(event);")
-            time.sleep(1)
+            time.sleep(30)
         
         # after 5 seconds, process the right-most tab
         current_handles = driver.window_handles
@@ -159,17 +177,18 @@ def process_url(driver, url):
                 
                 driver.close()
                 driver.switch_to.window(current_handles[0])
-                
-                return url, first_result['detections']
+
+                result = merge_technologies(first_result['detections'])
+                return url, result
             
             driver.close()
             driver.switch_to.window(current_handles[0])
         
-        return url, []
+        return url, {}
         
     except Exception as e:
         print(f"Error processing: {url}")
-        return url, []
+        return url, {}
 
 def merge_technologies(detections):
     """wappalyzer produces duplicate results, we are merging them"""
