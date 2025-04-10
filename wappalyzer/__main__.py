@@ -13,16 +13,6 @@ from wappalyzer.core.analyzer import http_scan
 from wappalyzer.core.utils import pretty_print, write_to_file
 from wappalyzer.browser.analyzer import DriverPool, cookie_to_cookies, process_url, merge_technologies
 
-parser = argparse.ArgumentParser()
-parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
-parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_type', default='full', type=str.lower)
-parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5, type=int)
-parser.add_argument('-oJ', help='json output file', dest='json_output_file')
-parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
-parser.add_argument('-oH', help='html output file', dest='html_output_file')
-parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
-args = parser.parse_args()
-
 def analyze(url, scan_type='full', threads=3, cookie=None):
     """Analyze a single URL"""
     if scan_type.lower() == 'full':
@@ -44,6 +34,16 @@ def analyze(url, scan_type='full', threads=3, cookie=None):
     return {url: http_scan(url, scan_type, cookie)}
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
+    parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_type', default='full', type=str.lower)
+    parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5, type=int)
+    parser.add_argument('-oJ', help='json output file', dest='json_output_file')
+    parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
+    parser.add_argument('-oH', help='html output file', dest='html_output_file')
+    parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
+    args = parser.parse_args()
+
     print('\n\t' + bold(green('wappalyzer')) + '\n')
     if not args.input_file:
         parser.print_help()
