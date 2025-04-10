@@ -198,8 +198,6 @@ try:
     else:
         print("hmm looks like there was an error friend!")
 
-    input("Enter to continue")
-
     directory = "wappalyzer/technologies"
     output_file = "../wappalyzer/data/technologies.json"
     data = {}
