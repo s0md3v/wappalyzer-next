@@ -1,7 +1,7 @@
 import tldextract
 import concurrent.futures
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 from wappalyzer.parsers.js import get_js
 from wappalyzer.parsers.dns import get_dns
@@ -17,15 +17,25 @@ from wappalyzer.analyzers.js import match_js
 from wappalyzer.core.requester import get_response
 from wappalyzer.core.utils import create_result
 
-def process_scripts(scheme, js, scriptSrc):
+def process_scripts(url, scheme, js, scriptSrc):
     def fetch_and_process(src):
         if src.endswith('.js') or '.js?' in src:
-            js_code = get_response(src)
-            if js_code and js_code.headers['Content-Type'].startswith('application/javascript'):
-                js_dict, low_dict, js_classes = get_js(js_code.text)
-                if js_dict:
-                    return {'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes, 'src': src}
+            try:
+                js_code = get_response(src)
+                if js_code and js_code.headers.get('Content-Type', '').startswith('application/javascript'):
+                    js_dict, low_dict, js_classes = get_js(js_code.text)
+                    if js_dict:
+                        return {'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes, 'src': src}
+            except Exception as e:
+                print(f"Error fetching script {src}: {str(e)}")
         return None
+
+    # Parse the base URL for resolving relative URLs
+    parsed_url = urlparse(url)
+    base_url = f"{parsed_url.scheme}://{parsed_url.netloc}{parsed_url.path}"
+    # Remove filename if present
+    if base_url.rsplit('/', 1)[-1] and '.' in base_url.rsplit('/', 1)[-1]:
+        base_url = base_url.rsplit('/', 1)[0] + '/'
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
         futures = {executor.submit(fetch_and_process, src): src for src in scriptSrc}
@@ -33,7 +43,10 @@ def process_scripts(scheme, js, scriptSrc):
             result = future.result()
             if result:
                 js.append({'dict': result['dict'], 'low_dict': result['low_dict'], 'classes': result['classes']})
-                scriptSrc.extend(get_scriptSrc(scheme, get_response(result['src']).text))
+                response = get_response(result['src'])
+                if response:
+                    new_scripts = get_scriptSrc(scheme, response.text, url=result['src'])
+                    scriptSrc.extend(new_scripts)
 
 def analyze_from_response(response, scan_type):
     # prepare common info
@@ -45,14 +58,14 @@ def analyze_from_response(response, scan_type):
     base_url = f'{scheme}://{hostname}'
 
     js = []
-    scriptSrc = get_scriptSrc(scheme, soup)
+    scriptSrc = get_scriptSrc(scheme, soup, url=response.url)
     for script in soup.find_all('script'):
         if not script.get('src'):
             js_dict, low_dict, js_classes = get_js(script.text)
             if js_dict:
                 js.append({'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes})
     if scan_type != 'fast':
-        process_scripts(scheme, js, scriptSrc)
+        process_scripts(response.url, scheme, js, scriptSrc)
 
     if scan_type != 'fast':
         dns = get_dns(domain)
