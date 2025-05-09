@@ -1,23 +1,17 @@
 import argparse
 import queue
 import re
+import sys
 import threading
+import tldextract
+
 from queue import Queue
+from huepy import bold, green
 
 from wappalyzer.core.requester import get_response
 from wappalyzer.core.analyzer import http_scan
 from wappalyzer.core.utils import pretty_print, write_to_file
 from wappalyzer.browser.analyzer import DriverPool, cookie_to_cookies, process_url, merge_technologies
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
-parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_type', default='full', type=str.lower)
-parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5, type=int)
-parser.add_argument('-oJ', help='json output file', dest='json_output_file')
-parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
-parser.add_argument('-oH', help='html output file', dest='html_output_file')
-parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
-args = parser.parse_args()
 
 def analyze(url, scan_type='full', threads=3, cookie=None):
     """Analyze a single URL"""
@@ -40,12 +34,22 @@ def analyze(url, scan_type='full', threads=3, cookie=None):
     return {url: http_scan(url, scan_type, cookie)}
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-i', help='import from file or enter a url', dest='input_file')
+    parser.add_argument('--scan-type', help='fast, balanced or full', dest='scan_type', default='full', type=str.lower)
+    parser.add_argument('-t', '--threads', help='number of threads', dest='thread_num', default=5, type=int)
+    parser.add_argument('-oJ', help='json output file', dest='json_output_file')
+    parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
+    parser.add_argument('-oH', help='html output file', dest='html_output_file')
+    parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
+    args = parser.parse_args()
+
+    print('\n\t' + bold(green('wappalyzer')) + '\n')
     if not args.input_file:
         parser.print_help()
         exit(22)
     
     result_db = {}
-
 
     def process_detections(url_detections, scan_type='full'):
         result = {}
@@ -60,11 +64,12 @@ def main():
         """Process multiple URLs using a driver pool"""
         results = {}
         driver_pool = None
+        interrupted = False
         
         def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full'):
             """Process URLs from the queue"""
             try:
-                while True:
+                while not interrupted:
                     try:
                         url = url_queue.get_nowait()
                     except queue.Empty:
@@ -112,23 +117,18 @@ def main():
                 thread.start()
                 threads.append(thread)
                 
-            # Wait for all tasks to complete
-            url_queue.join()
+            # Wait for all tasks to complete or interruption
+            try:
+                url_queue.join()
+            except KeyboardInterrupt:
+                interrupted = True
+                print("\nInterrupted! Saving partial results...")
             
-            # Wait for all threads to finish
-            for thread in threads:
-                thread.join(timeout=1)
-                
-            # Process results
-            url_detections = []
+            # Process available results
             while not result_queue.empty():
-                this_result = result_queue.get()
+                url, detections = result_queue.get()
                 if should_print:
-                    pretty_print({this_result[0]: merge_technologies(this_result[1])})
-                url_detections.append(this_result)
-            
-            # Process final results
-            for url, detections in url_detections:
+                    pretty_print({url: merge_technologies(detections)})
                 if scan_type == 'full':
                     results[url] = merge_technologies(detections)
                 else:
@@ -154,28 +154,40 @@ def main():
                     except Exception:
                         pass
 
-    if re.search(r'^https?://', args.input_file.lower()):
-        result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie)
+    try:
+        if re.search(r'^https?://', args.input_file.lower()):
+            should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
+            result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie)
+            if should_print:
+                pretty_print(result)
+        else:
+            try:
+                urls_file = open(args.input_file, 'r')
+                urls = urls_file.read().splitlines()
+                urls_file.close()
+                should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
+                result = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print)
+            except FileNotFoundError:
+                if tldextract.extract('http://' + args.input_file).domain != '':
+                    should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
+                    result = analyze('http://' + args.input_file, args.scan_type, args.thread_num, args.cookie)
+                    if should_print:
+                        pretty_print(result)
+                else:
+                    print(f"The argument '{args.input_file}' is neither a valid URL nor a file path.")
+                    exit(22)
+
+    except KeyboardInterrupt:
+        print("\nProgram interrupted by user. Saving partial results...")
+        pass
+
+    if 'result' in locals():
         if args.json_output_file:
             write_to_file(args.json_output_file, result, format='json')
         elif args.csv_output_file:
             write_to_file(args.csv_output_file, result, format='csv')
         elif args.html_output_file:
             write_to_file(args.html_output_file, result, format='html')
-        else:
-            pretty_print(result)
-    else:
-        urls_file = open(args.input_file, 'r')
-        urls = urls_file.read().splitlines()
-        urls_file.close()
-        should_print = True if not args.json_output_file and not args.csv_output_file else False
-        results = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print)
-        if args.json_output_file:
-            write_to_file(args.json_output_file, results, format='json')
-        elif args.csv_output_file:
-            write_to_file(args.csv_output_file, results, format='csv')
-        elif args.html_output_file:
-            write_to_file(args.html_output_file, results, format='html')
 
 if __name__ == '__main__':
     main()

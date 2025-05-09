@@ -55,6 +55,7 @@
     "groups": [
       3
     ],
+    "html": "<input[^>]+name=\"ci_csrf_token\"\\;version:2+",
     "name": "Wikis",
     "priority": 1
   },
