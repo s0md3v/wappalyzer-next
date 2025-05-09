@@ -1,7 +1,7 @@
 import tldextract
 import concurrent.futures
 from bs4 import BeautifulSoup
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
 
 from wappalyzer.parsers.js import get_js
 from wappalyzer.parsers.dns import get_dns
@@ -17,7 +17,8 @@ from wappalyzer.analyzers.js import match_js
 from wappalyzer.core.requester import get_response
 from wappalyzer.core.utils import create_result
 
-def process_scripts(scheme, js, scriptSrc):
+
+def process_scripts(base_url, js, scriptSrc):
     def fetch_and_process(src):
         if src.endswith('.js') or '.js?' in src:
             js_code = get_response(src)
@@ -33,7 +34,10 @@ def process_scripts(scheme, js, scriptSrc):
             result = future.result()
             if result:
                 js.append({'dict': result['dict'], 'low_dict': result['low_dict'], 'classes': result['classes']})
-                scriptSrc.extend(get_scriptSrc(scheme, get_response(result['src']).text))
+                # Pass base_url for proper URL resolution
+                js_code_response = get_response(result['src'])
+                if js_code_response:
+                    scriptSrc.extend(get_scriptSrc(base_url, js_code_response.text))
 
 def analyze_from_response(response, scan_type):
     # prepare common info
@@ -45,14 +49,14 @@ def analyze_from_response(response, scan_type):
     base_url = f'{scheme}://{hostname}'
 
     js = []
-    scriptSrc = get_scriptSrc(scheme, soup)
+    scriptSrc = get_scriptSrc(response.url, soup)
     for script in soup.find_all('script'):
         if not script.get('src'):
             js_dict, low_dict, js_classes = get_js(script.text)
             if js_dict:
                 js.append({'dict': js_dict, 'low_dict': low_dict, 'classes': js_classes})
     if scan_type != 'fast':
-        process_scripts(scheme, js, scriptSrc)
+        process_scripts(response.url, js, scriptSrc) # Pass response.url instead of scheme
 
     if scan_type != 'fast':
         dns = get_dns(domain)
@@ -133,6 +137,7 @@ def analyze_from_response(response, scan_type):
             else:
                 new_result[tech_db[detected]['implies']] = {'version': '', 'confidence': 100}
     return create_result(new_result)
+
 
 def http_scan(url, scan_type, cookie=None):
     response = get_response(url, cookie)
