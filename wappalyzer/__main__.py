@@ -98,7 +98,7 @@ def main():
                 print(f"Worker {worker_id} encountered an error: {str(e)}")
         
         try:
-            driver_pool = DriverPool(size=min(num_threads, 3))  # Limit max concurrent drivers
+            driver_pool = DriverPool(size=min(num_threads, 3)) if scan_type == 'full' else None  # Limit max concurrent drivers
             
             url_queue = Queue()
             result_queue = Queue()
@@ -128,7 +128,10 @@ def main():
             while not result_queue.empty():
                 url, detections = result_queue.get()
                 if should_print:
-                    pretty_print({url: merge_technologies(detections)})
+                    if scan_type == 'full':
+                        pretty_print({url: merge_technologies(detections)})
+                    else:
+                        pretty_print({url: detections})
                 if scan_type == 'full':
                     results[url] = merge_technologies(detections)
                 else:
