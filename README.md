@@ -2,6 +2,8 @@
 
 This project is a command line tool and python library that uses [Wappalyzer](https://www.wappalyzer.com/) extension (and its fingerprints) to detect technologies. Other projects emerged after discontinuation of the official open source project are using outdated fingerpints and lack accuracy when used on dynamic web-apps, this project bypasses those limitations.
 
+![demo](https://github.com/user-attachments/assets/7a51b034-c9a7-44e6-aa80-2f8a23311e72)
+
 - [Installation](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#installation)
 - [For Users](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-users)
 - [For Developers](https://github.com/s0md3v/wappalyzer-next?tab=readme-ov-file#for-developers)
