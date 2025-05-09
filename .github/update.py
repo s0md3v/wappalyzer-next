@@ -29,6 +29,7 @@ except FileNotFoundError:
 except Exception as e:
     print(f"An error occurred: {e}")
 
+input("Enter to continue")
 
 # File path
 file_path = "wappalyzer/js/index.js"  # Update with the file's name
@@ -68,7 +69,6 @@ old_text = """
         {}
       )
     )
-
 """
 
 # New block of text to replace `old_text`
@@ -138,9 +138,6 @@ new_text = """
       )
 
     })
-
-
- 
 """
 
 # Block of text to remove
@@ -154,6 +151,13 @@ rem = """
         open(
           'https://www.wappalyzer.com/installed/?utm_source=installed&utm_medium=extension&utm_campaign=wappalyzer'
         )
+
+        const termsAccepted =
+          agent === 'chrome' || (await getOption('termsAccepted', false))
+
+        if (!termsAccepted) {
+          open(chrome.runtime.getURL('html/terms.html'))
+        }
       }
     } else if (current && current !== previous && upgradeMessage) {
       open(
