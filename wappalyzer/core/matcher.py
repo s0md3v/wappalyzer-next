@@ -74,22 +74,35 @@ def single_match(regex, string):
     return False, '', 0
 
 def match(regex, string):
-    to_match = [string] if type(string) == str else string
-    for string in to_match:
-        if type(regex) == str:
-            return single_match(regex, string)
-        for r in regex:
-            this_match, version, confidence = single_match(r, string)
+    to_match = [string] if isinstance(string, str) else string
+    best_match = False
+    best_version = ''
+    best_confidence = 0
+
+    for s in to_match:
+        regexes = [regex] if isinstance(regex, str) else regex
+        for r in regexes:
+            this_match, version, confidence = single_match(r, s)
             if this_match:
-                return this_match, version, confidence
-    return False, '', 0
+                if (confidence > best_confidence) or (confidence == best_confidence and version > best_version):
+                    best_match = True
+                    best_version = version
+                    best_confidence = confidence
+
+    return best_match, best_version, best_confidence
+
 
 def match_dict(pattern_dict, response_dict):
     for name, pattern in pattern_dict.items():
         if name in response_dict:
-            if pattern_dict[name] == '':
-                return True, '', 100
-            matched, version, confidence = match(pattern, response_dict[name])
-            if matched:
-                return True, version, confidence
+            values = response_dict[name]
+            if not isinstance(values, list):
+                values = [values]
+            for value in values:
+                if pattern == '':
+                    return True, '', 100
+                matched, version, confidence = match(pattern, value)
+                if matched:
+                    return True, version, confidence
+    return False, '', 0
     return False, '', 0
