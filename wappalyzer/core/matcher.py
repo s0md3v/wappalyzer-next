@@ -105,4 +105,3 @@ def match_dict(pattern_dict, response_dict):
                 if matched:
                     return True, version, confidence
     return False, '', 0
-    return False, '', 0
