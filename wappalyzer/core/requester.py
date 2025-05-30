@@ -1,5 +1,8 @@
 import requests
+import urllib3
 from wappalyzer.core.config import config
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_response(url, cookie=None, **kwargs):
     headers = {
@@ -9,7 +12,7 @@ def get_response(url, cookie=None, **kwargs):
         "Accept-Encoding": "deflate",
         "DNT": "1",
         "Sec-GPC": "1",
-        "Connection": "keep-alive",
+        "Connection": "close",
         "Upgrade-Insecure-Requests": "1",
         "Sec-Fetch-Dest": "document",
         "Sec-Fetch-Mode": "navigate",
@@ -21,7 +24,7 @@ def get_response(url, cookie=None, **kwargs):
     try:
         if cookie:
             headers['Cookie'] = cookie
-        response = requests.get(url, headers=headers, verify=True, **kwargs)
+        response = requests.get(url, headers=headers, verify=False, **kwargs)
         return response
     except requests.exceptions.RequestException as e:
         print(e)

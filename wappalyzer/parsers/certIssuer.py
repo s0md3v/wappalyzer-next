@@ -1,6 +1,7 @@
 import ssl
 
 def get_certIssuer(response):
+    #  TODO: This doesn't work right now
     try:
         cert_info_raw = response.raw.connection.sock.getpeercert(True)
         pem_cert = ssl.DER_cert_to_PEM_cert(cert_info_raw)

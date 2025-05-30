@@ -6,7 +6,7 @@ config = {
     'scan_type': 'full',
 }
 
-root_dir = str(pathlib.Path(__file__).parent.resolve()).replace('core', '', -1)
+root_dir = str(pathlib.Path(__file__).parent.resolve()).removesuffix('core')
 data_dir = root_dir + '/data'
 
 tech_db = {}
