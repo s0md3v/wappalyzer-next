@@ -29,8 +29,6 @@ except FileNotFoundError:
 except Exception as e:
     print(f"An error occurred: {e}")
 
-input("Enter to continue")
-
 # File path
 file_path = "wappalyzer/js/index.js"  # Update with the file's name
 found = 0
