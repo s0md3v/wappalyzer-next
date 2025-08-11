@@ -1,6 +1,6 @@
 # Wappalyzer Next
 
-This project is a command line tool and python library that uses [Wappalyzer](https://www.wappalyzer.com/) extension (and its fingerprints) to detect technologies. Other projects emerged after discontinuation of the official open source project are using outdated fingerpints and lack accuracy when used on dynamic web-apps, this project bypasses those limitations.
+This project is a command line tool and python library that uses [Wappalyzer](https://www.wappalyzer.com/) extension (and its fingerprints) to detect technologies. Other projects that emerged after the discontinuation of the official open-source project are using outdated fingerprints and lack accuracy when used on dynamic web apps. This project bypasses those limitations.
 
 ![demo](https://github.com/user-attachments/assets/7a51b034-c9a7-44e6-aa80-2f8a23311e72)
 
@@ -11,7 +11,7 @@ This project is a command line tool and python library that uses [Wappalyzer](ht
 
 ## Installation
 
-Before installing wappalyzer, you will to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases). Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
+Before installing wappalyzer, you will need to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases). Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
 <details>
 <summary>Setting up geckodriver</summary>
 
@@ -103,7 +103,7 @@ Some common usage examples are given below, refer to list of all options for mor
 
 ## For Developers
 
-The python library is a available on pypi as `wappalyzer` and can be imported with the same name.
+The python library is available on pypi as `wappalyzer` and can be imported with the same name.
 
 #### Using the Library
 
@@ -156,5 +156,5 @@ Firefox extensions are .xpi files which are essentially zip files. This makes it
 
 #### What is the difference between 'fast', 'balanced', and 'full' scan types?
 - **fast**: Sends a single HTTP request to the URL. Doesn't use the extension.
-- **balanced**: Sends additional HTTP requests to .js files, /robots.txt annd does DNS queries. Doesn't use the extension.
+- **balanced**: Sends additional HTTP requests to .js files, /robots.txt and does DNS queries. Doesn't use the extension.
 - **full**: Uses the official Wappalyzer extension to scan the URL in a headless browser.
