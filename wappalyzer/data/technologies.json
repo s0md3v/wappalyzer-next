@@ -6151,6 +6151,21 @@
         "oss": true,
         "website": "https://goober.js.org"
     },
+    "GoodApps": {
+        "cats": [
+            6
+        ],
+        "description": "GoodApps is an ecommerce tools builder that provides customizable solutions for creating and managing online stores.",
+        "icon": "GoodApps.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "\\.goodapps\\.io",
+        "scripts": "\\.goodapps\\.io",
+        "website": "https://goodapps.io"
+    },
     "GoodEshop": {
         "cats": [
             6
@@ -6177,6 +6192,22 @@
         "saas": true,
         "scripts": "app\\.goodreviews\\.io",
         "website": "https://goodreviews.io"
+    },
+    "Goodbits": {
+        "cats": [
+            75
+        ],
+        "cookies": {
+            "_goodbits_session": ""
+        },
+        "description": "Goodbits is email newsletter creation software designed to help collect and curate content for sending newsletters.",
+        "icon": "Goodbits.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "website": "https://goodbits.io"
     },
     "Goodsearch": {
         "cats": [
@@ -6920,6 +6951,22 @@
         ],
         "saas": true,
         "website": "https://graphly.io"
+    },
+    "Graphy": {
+        "cats": [
+            21
+        ],
+        "description": "Graphy is a platform that enables the creation and scaling of courses, communities, and digital products using AI tools.",
+        "icon": "Graphy.svg",
+        "js": {
+            "getGraphyCookie": ""
+        },
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "website": "https://graphy.com"
     },
     "Grasp": {
         "cats": [
@@ -9777,6 +9824,22 @@
         ],
         "website": "https://fly.io"
     },
+    "Flybook": {
+        "cats": [
+            93
+        ],
+        "cookies": {
+            "flybook-generated-session-guid": ""
+        },
+        "description": "Flybook is specialized reservation software designed to manage bookings, availability, and operations for businesses in the adventure, tours, and rentals industry.",
+        "icon": "Flybook.svg",
+        "pricing": [
+            "payg",
+            "poa"
+        ],
+        "saas": true,
+        "website": "https://www.theflybook.com"
+    },
     "Flying Analytics": {
         "cats": [
             87
@@ -10950,6 +11013,20 @@
         "scriptSrc": "wchat\\.freshchat\\.com/js/widget\\.js",
         "website": "https://www.freshworks.com/live-chat-software/"
     },
+    "Fresho": {
+        "cats": [
+            6
+        ],
+        "description": "Fresho is an Order Management System that streamlines the processing, tracking, and fulfillment of customer orders across various sales channels.",
+        "icon": "Fresho.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scripts": "app\\.fresho\\.com",
+        "website": "https://www.fresho.com"
+    },
     "Freshop": {
         "cats": [
             6
@@ -11694,6 +11771,19 @@
         ],
         "saas": true,
         "website": "https://www.futy.io"
+    },
+    "Fuzey Channels": {
+        "cats": [
+            53
+        ],
+        "description": "Fuzey Channels is an AI-powered communication platform designed specifically for the automotive industry to streamline customer interactions.",
+        "icon": "Fuzey.svg",
+        "pricing": [
+            "poa"
+        ],
+        "saas": true,
+        "scriptSrc": "widget\\.fuzey\\.io",
+        "website": "https://www.getfuzey.com/features/channels"
     },
     "Fygaro": {
         "cats": [
@@ -14474,6 +14564,16 @@
         ],
         "website": "https://metomic.io"
     },
+    "Metrics Key": {
+        "cats": [
+            10
+        ],
+        "description": "Metrics Key is software used for tracking performance in software development and search marketing campaigns.",
+        "icon": "MetricsKey.svg",
+        "saas": true,
+        "scriptSrc": "//metricskey\\.net/track\\.js",
+        "website": "https://metricskey.net"
+    },
     "MetricsCube": {
         "cats": [
             10
@@ -16892,6 +16992,21 @@
         },
         "website": "https://www.myonlinestore.com/ "
     },
+    "MyRest": {
+        "cats": [
+            93
+        ],
+        "description": "MyRest is a reservation system for restaurants that incorporates updated guidelines for gastro marketing.",
+        "icon": "MyRest.svg",
+        "pricing": [
+            "freemium",
+            "mid",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "api\\.myrest\\.io",
+        "website": "https://myrest.io/"
+    },
     "MySQL": {
         "cats": [
             34
@@ -17441,6 +17556,25 @@
             "derakCloud.init": ""
         },
         "website": "https://derak.cloud"
+    },
+    "DESTOON": {
+        "cats": [
+            1
+        ],
+        "description": "DESTOON is a website management solution designed to support the creation, organization, and operation of online platforms through integrated tools and features.",
+        "icon": "DESTOON.svg",
+        "js": {
+            "destoon_cart": "",
+            "destoon_chat": ""
+        },
+        "meta": {
+            "generator": "^DESTOON B2B - www\\.destoon\\.com$"
+        },
+        "pricing": [
+            "onetime"
+        ],
+        "saas": true,
+        "website": "https://destoon.com"
     },
     "DEUNA": {
         "cats": [
@@ -18111,6 +18245,24 @@
             "dayjs": ""
         },
         "website": "https://github.com/iamkun/dayjs"
+    },
+    "Deadline Funnel": {
+        "cats": [
+            32
+        ],
+        "description": "Deadline is a tool used to automate marketing funnels by managing time-based campaigns and creating urgency-driven conversion strategies.",
+        "icon": "DeadlineFunnel.svg",
+        "js": {
+            "SendUrlToDeadlineFunnel": "",
+            "afterDeadline": ""
+        },
+        "pricing": [
+            "mid",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "a\\.deadlinefunnel\\.com/",
+        "website": "https://www.deadlinefunnel.com"
     },
     "Deal.ai": {
         "cats": [
@@ -22915,6 +23067,16 @@
         "scriptSrc": "notix\\.io/ent",
         "website": "https://notix.co"
     },
+    "Nova Busca": {
+        "cats": [
+            29
+        ],
+        "description": "Nova Busca is an artificial intelligence tool that enhances search functionality on ecommerce websites by improving result relevance and user experience.",
+        "icon": "NovaBusca.svg",
+        "saas": true,
+        "scriptSrc": "api\\.novabusca\\.com\\.br",
+        "website": "https://novabusca.com.br"
+    },
     "Novel": {
         "cats": [
             6
@@ -23035,6 +23197,20 @@
         "saas": true,
         "scriptSrc": "\\.nuqlium\\.com/api",
         "website": "https://www.nuqlium.com"
+    },
+    "Nurture": {
+        "cats": [
+            32
+        ],
+        "description": "Nurture is an all-in-one marketing automation software designed to streamline campaign management, lead tracking, and customer engagement in a single platform.",
+        "icon": "Nurture.svg",
+        "pricing": [
+            "mid",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "nurtureapi\\.nurturehq\\.com",
+        "website": "https://www.nurturehq.com"
     },
     "Nurture Boss": {
         "cats": [
@@ -27684,6 +27860,16 @@
         ],
         "saas": true,
         "website": "https://www.kites.io"
+    },
+    "Kiva": {
+        "cats": [
+            111
+        ],
+        "description": "Kiva is a charity organization that connects individuals through micro-lending to help alleviate poverty.",
+        "icon": "Kiva.svg",
+        "saas": true,
+        "scriptSrc": "www\\.kiva\\.org",
+        "website": "https://www.kiva.org"
     },
     "Kiwi Sizing": {
         "cats": [
@@ -32676,6 +32862,19 @@
         "saas": true,
         "scriptSrc": "\\.myshopblocks\\.com/",
         "website": "https://www.shopblocks.com"
+    },
+    "Shopbox AI": {
+        "cats": [
+            76
+        ],
+        "description": "Shopbox AI is a tool that helps online retailers improve customer engagement, increase conversion rates, and enhance retention through data-driven insights.",
+        "icon": "ShopboxAI.svg",
+        "pricing": [
+            "poa"
+        ],
+        "saas": true,
+        "scripts": "widget\\.shopbox\\.ai",
+        "website": "https://www.shopbox.ai"
     },
     "Shopcada": {
         "cats": [
@@ -39938,6 +40137,22 @@
         "scripts": "platform\\.swellcx\\.com",
         "website": "https://www.swellcx.com"
     },
+    "Swetrix": {
+        "cats": [
+            10
+        ],
+        "description": "Swetrix is an open-source analytics platform that offers data analysis and reporting features for various use cases.",
+        "icon": "Swetrix.svg",
+        "js": {
+            "swetrix.LIB_INSTANCE": ""
+        },
+        "oss": true,
+        "pricing": [
+            "payg"
+        ],
+        "scripts": "api\\.swetrix\\.com",
+        "website": "https://swetrix.com"
+    },
     "Swiffy Slider": {
         "cats": [
             59
@@ -40238,6 +40453,16 @@
             "SyntaxHighlighter": ""
         },
         "website": "https://github.com/syntaxhighlighter"
+    },
+    "Systema": {
+        "cats": [
+            76
+        ],
+        "description": "Systema is an anonymous personalization platform designed for retailers to deliver tailored experiences without using personal identifiers.",
+        "icon": "Systema.svg",
+        "saas": true,
+        "scriptSrc": "cdn\\.systema\\.ai",
+        "website": "https://systema.ai"
     },
     "Systeme.io": {
         "cats": [
@@ -43264,6 +43489,16 @@
         },
         "scriptSrc": "exhibit.*\\.js",
         "website": "https://simile-widgets.org/exhibit/"
+    },
+    "Exit Bee": {
+        "cats": [
+            36
+        ],
+        "description": "Exit Bee is a platform that uses pattern recognition and machine learning to detect when users disengage from website content and are more likely to interact with ad campaigns.",
+        "icon": "ExitBee.svg",
+        "saas": true,
+        "scripts": "cdn\\.exitbee\\.com",
+        "website": "https://www.exitbee.com"
     },
     "ExitIntel": {
         "cats": [
@@ -46579,8 +46814,7 @@
         "description": "Resolve Pay is a platform that provides 30 to 60 day net terms financing for B2B merchants and buyers.",
         "icon": "ResolvePay.svg",
         "js": {
-            "as_resolveEnvironmentURL": "",
-            "webkitResolveLocalFileSystemURL": ""
+            "as_resolveEnvironmentURL": ""
         },
         "saas": true,
         "website": "https://resolvepay.com/b2b-payments"
@@ -49310,6 +49544,19 @@
         "scriptSrc": "\\.partnero\\.com/",
         "website": "https://www.partnero.com"
     },
+    "Parts Square": {
+        "cats": [
+            6
+        ],
+        "description": "Parts Square is an enterprise-grade automotive ecommerce platform designed to support SEO-friendly sales of auto parts through a standalone website.",
+        "icon": "PartsSquare.svg",
+        "pricing": [
+            "poa"
+        ],
+        "saas": true,
+        "scripts": "\\.square\\.parts/",
+        "website": "https://square.parts"
+    },
     "Parttrap ONE": {
         "cats": [
             6
@@ -50854,6 +51101,21 @@
         "scriptSrc": "\\.picreel\\.com",
         "website": "https://www.picreel.com"
     },
+    "Picture It": {
+        "cats": [
+            100
+        ],
+        "description": "Picture It is a preview tool designed for Shopify art stores, enabling visualization of products within a single platform.",
+        "icon": "PictureIt.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "requires": "Shopify",
+        "saas": true,
+        "scriptSrc": "app\\.pictureit\\.co/",
+        "website": "https://www.pictureit.co"
+    },
     "Picturepark": {
         "cats": [
             95
@@ -51179,7 +51441,6 @@
         ],
         "saas": true,
         "scriptSrc": "\\.piwik\\.pro/",
-        "scripts": "piwik",
         "website": "https://piwik.pro"
     },
     "Pixc": {
@@ -53973,6 +54234,25 @@
             "projesoft\\.js"
         ],
         "website": "https://www.projesoft.com.tr"
+    },
+    "Prolo Finder": {
+        "cats": [
+            35
+        ],
+        "description": "Prolo is a tool that adds a store locator feature to any website, enabling users to find nearby store locations through an interactive map or search interface.",
+        "icon": "ProloFinder.svg",
+        "js": {
+            "proloConfig": "",
+            "proloFinderState": ""
+        },
+        "pricing": [
+            "low",
+            "recurring",
+            "poa"
+        ],
+        "saas": true,
+        "scriptSrc": "embed\\.prolofinder\\.com",
+        "website": "https://www.prolofinder.com"
     },
     "Promio": {
         "cats": [
@@ -59443,7 +59723,7 @@
             72
         ],
         "description": "Acuity Scheduling is a cloud-based appointment scheduling software solution.",
-        "dom": "a[href*='app.acuityscheduling.com']",
+        "dom": "iframe[src*='app.acuityscheduling.com/']",
         "icon": "Acuity Scheduling.svg",
         "js": {
             "ACUITY_MODAL_INIT": ""
@@ -64122,6 +64402,24 @@
         "saas": true,
         "scriptSrc": "\\.artschema\\.net/",
         "website": "https://www.artschema.net"
+    },
+    "ArtPlacer": {
+        "cats": [
+            32
+        ],
+        "cookies": {
+            "artplacer_session": ""
+        },
+        "description": "ArtPlacer is a marketing tool designed to support growth in art businesses by enhancing visibility and promotional efforts.",
+        "icon": "Artplacer.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "requires": "Shopify",
+        "saas": true,
+        "scripts": "shop-app\\.artplacer\\.com",
+        "website": "https://www.artplacer.com"
     },
     "ArtiBot": {
         "cats": [
@@ -71082,6 +71380,21 @@
         },
         "website": "https://www.touch2success.com"
     },
+    "TourCMS": {
+        "cats": [
+            93
+        ],
+        "description": "TourCMS is a platform designed for tour and activity operators, offering solutions for managing online and offline bookings and distribution.",
+        "icon": "TourCMS.svg",
+        "pricing": [
+            "mid",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "mp\\.tourcms\\.com",
+        "scripts": "mp\\.tourcms\\.com",
+        "website": "https://www.tourcms.com"
+    },
     "TownNews": {
         "cats": [
             1
@@ -76163,6 +76476,20 @@
         "scriptSrc": "static\\.woopra\\.com",
         "website": "https://www.woopra.com"
     },
+    "Woorise": {
+        "cats": [
+            32
+        ],
+        "description": "Woorise is a marketing platform that enables the creation of lead generation landing pages.",
+        "dom": "script#woorise-embed-js-after",
+        "icon": "Woorise.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "website": "https://woorise.com"
+    },
     "Woostify": {
         "cats": [
             80
@@ -77113,6 +77440,23 @@
         "scriptSrc": "ocnk-min\\.js",
         "website": "https://www.ocnk.com"
     },
+    "Oclocher": {
+        "cats": [
+            2
+        ],
+        "description": "Oclocher is a parish animation app used by parishes and dioceses to help maintain connections between parishioners from one Sunday to the next.",
+        "headers": {
+            "Access-Control-Allow-Origin": "widget\\.oclocher\\.fr"
+        },
+        "icon": "OClocher.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "widget\\.oclocher\\.fr",
+        "website": "https://www.oclocher.fr"
+    },
     "Oct8ne": {
         "cats": [
             52
@@ -77130,6 +77474,16 @@
         "saas": true,
         "scriptSrc": "\\.oct8ne\\.com/",
         "website": "https://oct8ne.com"
+    },
+    "Octane": {
+        "cats": [
+            91
+        ],
+        "description": "Octane is a financing solution for motorcycles, ATVs, mowers, and other power sports and outdoor equipment.",
+        "icon": "Octane.svg",
+        "saas": true,
+        "scriptSrc": "widget\\.octane\\.co",
+        "website": "https://octane.co"
     },
     "Octane AI": {
         "cats": [
@@ -78066,6 +78420,21 @@
         ],
         "saas": true,
         "website": "https://oopy.us/"
+    },
+    "OpTuNE": {
+        "cats": [
+            104
+        ],
+        "description": "OpTuNE is an online platform for booking and managing events, designed for artists, venues, and promoters.",
+        "icon": "OpTuNE.svg",
+        "pricing": [
+            "freemium",
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scripts": "\\.optune\\.me",
+        "website": "https://www.optune.me"
     },
     "Opal": {
         "cats": [
@@ -86560,6 +86929,20 @@
         "scriptSrc": "\\.trustcommander\\.net/privacy/.+_v([\\d]+)_([\\d]+)\\.js\\;version:\\1.\\2",
         "website": "https://www.commandersact.com/en/solutions/trustcommander/"
     },
+    "CommentSold": {
+        "cats": [
+            6
+        ],
+        "description": "CommentSold is a platform that converts social media comments into sales by enabling automated purchase processing.",
+        "icon": "CommentSold.svg",
+        "pricing": [
+            "mid",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "s3\\.commentsold\\.com",
+        "website": "https://try.commentsold.com"
+    },
     "Commento": {
         "cats": [
             15
@@ -86718,6 +87101,21 @@
         "saas": true,
         "scriptSrc": "\\.community\\.com/",
         "website": "https://www.community.com"
+    },
+    "Community Box": {
+        "cats": [
+            5
+        ],
+        "description": "Community Box is a tool that allows users to create directories within a website without writing any code.",
+        "icon": "CommunityBox.svg",
+        "pricing": [
+            "freemium",
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scripts": "cfapi\\.communitybox\\.co",
+        "website": "https://www.communitybox.co"
     },
     "Community Funded": {
         "cats": [
@@ -88144,6 +88542,16 @@
         "scripts": "cdn\\.corso\\.com",
         "website": "https://corso.com"
     },
+    "Cosmedcloud": {
+        "cats": [
+            53
+        ],
+        "description": "Cosmedcloud is cloud-based practice management software tailored for cosmetic and aesthetic medicine clinics.",
+        "icon": "CosmedCloud.svg",
+        "saas": true,
+        "scripts": "\\.cosmedcloud\\.com",
+        "website": "https://www.cosmedcloud.com"
+    },
     "Cosmic": {
         "cats": [
             1
@@ -88201,6 +88609,19 @@
         ],
         "saas": true,
         "website": "https://counselingkit.com"
+    },
+    "Countable": {
+        "cats": [
+            2
+        ],
+        "description": "Countable is a community platform designed to support discussion, collaboration, and engagement among members through shared content, forums, and interactive features.",
+        "icon": "Countable.svg",
+        "meta": {
+            "appleid-signin-client-id": "com\\.countable\\.signin"
+        },
+        "saas": true,
+        "scriptSrc": "assets\\.countable\\.us/",
+        "website": "https://www.countable.com"
     },
     "Countly": {
         "cats": [
@@ -92401,6 +92822,22 @@
         "oss": true,
         "website": "https://gitlab.com/hsleisink/hiawatha"
     },
+    "Hibu": {
+        "cats": [
+            32
+        ],
+        "description": "Hibu is an AI-enabled platform that helps generate, manage, respond to, and convert leads while supporting ongoing customer engagement through a single provider.",
+        "icon": "Hibu.svg",
+        "js": {
+            "hibuWebsiteConfig": ""
+        },
+        "pricing": [
+            "poa"
+        ],
+        "saas": true,
+        "scripts": "cdn\\.hibuwebsites\\.com",
+        "website": "https://hibu.com"
+    },
     "HighLevel": {
         "cats": [
             32,
@@ -94327,6 +94764,18 @@
         ],
         "saas": true,
         "website": "https://shantaweb.com"
+    },
+    "Bagisto": {
+        "cats": [
+            6
+        ],
+        "cookies": {
+            "bagisto_session": ""
+        },
+        "description": "Bagisto is an open-source Laravel ecommerce framework that provides customizable features for building and managing online stores.",
+        "icon": "Bagisto.svg",
+        "oss": true,
+        "website": "https://bagisto.com"
     },
     "Bahooosh": {
         "cats": [
@@ -97469,6 +97918,25 @@
         ],
         "saas": true,
         "website": "https://www.bowtie.ai"
+    },
+    "Boxmode": {
+        "cats": [
+            51
+        ],
+        "description": "Boxmode is a drag-and-drop website builder designed for creating websites across various niches.",
+        "icon": "Boxmode.svg",
+        "js": {
+            "BOXMODE_PROJECT_ID": "",
+            "_BoxmodeConfig": ""
+        },
+        "pricing": [
+            "freemium",
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "storage\\.boxmode\\.com",
+        "website": "https://www.boxmode.com"
     },
     "Boxtal": {
         "cats": [
