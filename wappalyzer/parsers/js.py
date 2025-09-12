@@ -131,7 +131,6 @@ def get_js(js_code: str) -> dict:
             # Handle undefined
             if value.lower() == 'undefined':
                 return None
-            # Handle numbers: keep value as string as regexes are matched on string
             # Handle strings with quotes
             if (value.startswith('"') and value.endswith('"')) or \
                (value.startswith("'") and value.endswith("'")):
