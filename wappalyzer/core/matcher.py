@@ -15,7 +15,7 @@ foo\\1   Returns foo with the first match appended.
 
 def group_or_literal(option, match):
     if option.startswith('\\'):
-        return match.group(int(option[1:]))
+        return match.group(int(option[1:])) or ''
     return option
 
 def get_version(match, version_type):
