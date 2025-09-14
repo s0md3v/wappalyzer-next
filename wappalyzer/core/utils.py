@@ -1,6 +1,8 @@
 import json
 from huepy import bold, green
 from wappalyzer.core.config import cat_db, groups_db, tech_db
+from wappalyzer.core.matcher import parse_pattern
+
 
 def get_cats_and_groups(tech_name):
     cats = []
@@ -30,10 +32,14 @@ def create_result(technologies):
             else:
                 required.append(tech_db[tech_name]['requires'])
         if 'implies' in tech_db[tech_name]:
+            # implies may include confidence score.
             if type(tech_db[tech_name]['implies']) == list:
-                implied.extend(tech_db[tech_name]['implies'])
+                implied_techs = tech_db[tech_name]['implies']
             else:
-                implied.append(tech_db[tech_name]['implies'])
+                implied_techs = [tech_db[tech_name]['implies']]
+            for implied_tech in implied_techs:
+                implied_tech_name, _, _ = parse_pattern(implied_tech)
+                implied.append(implied_tech_name)
         if 'excludes' in tech_db[tech_name]:
             if type(tech_db[tech_name]['excludes']) == list:
                 excluded.extend(tech_db[tech_name]['excludes'])
