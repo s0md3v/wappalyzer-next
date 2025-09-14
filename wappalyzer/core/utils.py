@@ -32,11 +32,9 @@ def create_result(technologies):
             else:
                 required.append(tech_db[tech_name]['requires'])
         if 'implies' in tech_db[tech_name]:
-            # implies may include confidence score.
+            implied_techs = [tech_db[tech_name]['implies']]
             if type(tech_db[tech_name]['implies']) == list:
                 implied_techs = tech_db[tech_name]['implies']
-            else:
-                implied_techs = [tech_db[tech_name]['implies']]
             for implied_tech in implied_techs:
                 implied_tech_name, _, _ = parse_pattern(implied_tech)
                 implied.append(implied_tech_name)
