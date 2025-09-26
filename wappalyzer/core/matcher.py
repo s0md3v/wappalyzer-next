@@ -97,7 +97,9 @@ def match_dict(pattern_dict, response_dict):
         if name in response_dict:
             values = response_dict[name]
             if not isinstance(values, list):
-                values = [values]
+                if isinstance(values, bool):
+                    values = str(values).lower()
+                values = [str(values)]
             for value in values:
                 if pattern == '':
                     return True, '', 100
