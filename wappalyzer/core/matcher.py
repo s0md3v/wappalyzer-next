@@ -14,36 +14,31 @@ foo\\1   Returns foo with the first match appended.
 """
 
 def group_or_literal(option, match):
-    if option.startswith('\\'):
-        return match.group(int(option[1:])) or ''
-    return option
+    s_replaced = ''
+    last_pos = 0
+    for m in re.finditer(r'(\\\d+)', option):
+        value = match.group(int(m.group(1)[1:])) or ''
+        s_replaced = s_replaced + option[last_pos:m.start()] + value
+        last_pos = m.end()
+    s_replaced = s_replaced + option[last_pos:]
+    return s_replaced
 
 def get_version(match, version_type):
     version = ''
     if version_type == '':
         return version
-    if version_type.endswith(':'): # \\1?a:
-        if match.group(1):
-            version = group_or_literal(version_type.split('?')[-1].split(':')[0], match)
-    elif '?:' in version_type: # \\1?:b'
-        if not match.group(1):
-            version = group_or_literal(version_type.split(':')[-1], match)
-        else:
-            version = ''
-    elif ('?' and ':') in version_type: # \\1?a:b
-        if match.group(1):
-            version = group_or_literal(version_type.split('?')[-1].split(':')[0], match)
-        else:
-            version = group_or_literal(version_type.split(':')[-1], match)
-    elif '\\' in version_type: # foo\\1
-        if version_type.startswith('\\'):
-            version = group_or_literal(version_type, match)
-        else:
-            version = version_type.split('\\')[0] + match.group(1)
-    else:
-        return version
-    if version:
-        version = re.split(r'[\)\]\},]', version.replace('\'', '').replace('"', ''))[0]
+    if m := re.match(r'^(.*?\\\d+.*?)(?:\?([^:]*):(.*))?$', version_type):
+        # m has 3 groups: group_1 ? group_2 : group_3. Group 2 and 3 can be null => not a ternary operator.
+        # each group may include any number of match's group references
+        version = group_or_literal(m.group(1), match)
+        if m.group(2):
+            if version:
+                version = group_or_literal(m.group(2), match)
+            else:
+                if m.group(3):
+                    version = group_or_literal(m.group(3), match)
+                else:
+                    version = ''
     return version
 
 def parse_pattern(regex):
