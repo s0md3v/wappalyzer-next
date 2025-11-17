@@ -10,7 +10,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='wappalyzer',
-    version='1.0.17',
+    version='1.0.18',
     description='Wappalyzer-based tech stack detection library',
     long_description=desc,
     long_description_content_type='text/markdown',
@@ -18,7 +18,7 @@ setup(
     author_email='s0md3v@gmail.com',
     license='GNU General Public License v3',
     url='https://github.com/s0md3v/wappalyzer-next',
-    download_url='https://github.com/s0md3v/wappalyzer-next/archive/1.0.17.zip',
+    download_url='https://github.com/s0md3v/wappalyzer-next/archive/1.0.18.zip',
     packages=find_packages(),
     package_data={'wappalyzer': ['data/*']},
     install_requires=[
