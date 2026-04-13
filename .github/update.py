@@ -1,238 +1,181 @@
-import re
-import urllib.request
 import json
-import os
-import glob
+import re
 import shutil
+import tempfile
+import urllib.request
 import zipfile
+from pathlib import Path
+from textwrap import dedent
 
-url = "https://addons.mozilla.org/firefox/downloads/latest/wappalyzer/platform:2/wappalyzer.xpi"
-temp = "wappalyzer.zip"
-urllib.request.urlretrieve(url, temp)
 
-zippath = "wappalyzer.zip"
-exdir = "wappalyzer"
-finname = "wappalyzer.xpi"
-if not os.path.exists(exdir):
-    os.makedirs(exdir)
+URL = "https://addons.mozilla.org/firefox/downloads/latest/wappalyzer/platform:2/wappalyzer.xpi"
+REPO_ROOT = Path(__file__).resolve().parent.parent
+DATA_DIR = REPO_ROOT / "wappalyzer" / "data"
 
-try:
-    # Open the zip file
-    with zipfile.ZipFile(zippath, "r") as zip_ref:
-        # Extract all the contents into the specified directory
-        zip_ref.extractall(exdir)
-        print(f"File extracted successfully to {exdir}")
-except zipfile.BadZipFile:
-    print(f"Error: The file {zippath} is not a valid zip file.")
-except FileNotFoundError:
-    print(f"Error: The file {zippath} was not found.")
-except Exception as e:
-    print(f"An error occurred: {e}")
+PROMPT_BLOCK = re.compile(
+    r"^[ \t]*const current = await get(?:Cached)?Option\('version'\)\n"
+    r".*?"
+    r"(?=^[ \t]*initDone\(\))",
+    re.MULTILINE | re.DOTALL,
+)
 
-# File path
-file_path = "wappalyzer/js/index.js"  # Update with the file's name
-found = 0
-# Block of text to replace
-old_text = """
- // Save cache
-    await setOption(
-      'hostnames',
-      Object.keys(Driver.cache.hostnames).reduce(
-        (hostnames, hostname) => ({
-          ...hostnames,
-          [hostname]: {
-            ...cache,
-            detections: Driver.cache.hostnames[hostname].detections
-              .filter(({ technology }) => technology)
-              .map(
-                ({
-                  technology: { name: technology },
-                  pattern: { regex, confidence },
-                  version,
-                  rootPath,
-                  lastUrl,
-                }) => ({
-                  technology,
-                  pattern: {
-                    regex: regex.source,
-                    confidence,
-                  },
-                  version,
-                  rootPath,
-                  lastUrl,
-                })
-              ),
-          },
-        }),
-        {}
-      )
-    )
-"""
+PERSIST_HOSTNAMES = re.compile(
+    r"(?P<indent>^[ \t]*)async persistHostnames\(\) \{\n"
+    r".*?"
+    r"^(?P=indent)\},\n",
+    re.MULTILINE | re.DOTALL,
+)
 
-# New block of text to replace `old_text`
-new_text = """
-    browser.tabs.create({
+LEGACY_HOSTNAMES = re.compile(
+    r"(?P<indent>^[ \t]*)await setOption\(\n"
+    r"(?P=indent)  'hostnames',\n"
+    r".*?"
+    r"^(?P=indent)\)\n",
+    re.MULTILINE | re.DOTALL,
+)
 
-        url: JSON.stringify(
 
-        Object.keys(Driver.cache.hostnames).reduce(
+def indent(text, prefix):
+    lines = dedent(text).strip("\n").splitlines()
+    return "\n".join(f"{prefix}{line}" if line else "" for line in lines) + "\n"
 
-          (hostnames, hostname) => ({
 
-            ...hostnames,
+def patch_index_js(content):
+    content = PROMPT_BLOCK.sub("", content, count=1)
 
-            [hostname]: {
+    content, persist_count = PERSIST_HOSTNAMES.subn(
+        lambda match: indent(
+            """
+            async persistHostnames() {
+              Driver.pruneHostnamesCache()
 
-              ...cache,
+              const hostnames = {}
 
-              detections: Driver.cache.hostnames[hostname].detections
+              for (const hostname of Object.keys(Driver.cache.hostnames)) {
+                const cache = Driver.cache.hostnames[hostname]
 
-                .filter(({ technology }) => technology)
+                hostnames[hostname] = {
+                  ...cache,
+                  detections: cache.detections
+                    .filter(({ technology }) => technology)
+                    .map(
+                      ({
+                        technology: { name: technology },
+                        pattern: { regex, confidence },
+                        version,
+                        rootPath,
+                        lastUrl,
+                      }) => ({
+                        technology,
+                        pattern: {
+                          regex: regex.source,
+                          confidence,
+                        },
+                        version,
+                        rootPath,
+                        lastUrl,
+                      })
+                    ),
+                }
+              }
 
-                .map(
-
-                  ({
-
-                    technology: { name: technology },
-
-                    pattern: { regex, confidence },
-
-                    version,
-
-                    rootPath,
-
-                    lastUrl,
-
-                  }) => ({
-
-                    technology,
-
-                    pattern: {
-
-                      regex: regex.source,
-
-                      confidence,
-
-                    },
-
-                    version,
-
-                    rootPath,
-
-                    lastUrl,
-
-                  })
-
-                ),
-
+              browser.tabs.create({
+                url: JSON.stringify(hostnames),
+              })
             },
+            """,
+            match.group("indent"),
+        ),
+        content,
+        count=1,
+    )
 
-          }),
-
-          {}
-
+    if not persist_count:
+        content, legacy_count = LEGACY_HOSTNAMES.subn(
+            lambda match: indent(
+                """
+                browser.tabs.create({
+                  url: JSON.stringify(
+                    Object.keys(Driver.cache.hostnames).reduce(
+                      (hostnames, hostname) => ({
+                        ...hostnames,
+                        [hostname]: {
+                          ...cache,
+                          detections: Driver.cache.hostnames[hostname].detections
+                            .filter(({ technology }) => technology)
+                            .map(
+                              ({
+                                technology: { name: technology },
+                                pattern: { regex, confidence },
+                                version,
+                                rootPath,
+                                lastUrl,
+                              }) => ({
+                                technology,
+                                pattern: {
+                                  regex: regex.source,
+                                  confidence,
+                                },
+                                version,
+                                rootPath,
+                                lastUrl,
+                              })
+                            ),
+                        },
+                      }),
+                      {}
+                    )
+                  ),
+                })
+                """,
+                match.group("indent"),
+            ),
+            content,
+            count=1,
         )
 
-      )
+        if not legacy_count:
+            raise RuntimeError("Failed to patch js/index.js")
 
-    })
-"""
+    if "https://www.wappalyzer.com/installed/" in content:
+        raise RuntimeError("Failed to remove install prompt from js/index.js")
 
-# Block of text to remove
-rem = """
-    const current = await getOption('version')
+    if "https://www.wappalyzer.com/upgraded/" in content:
+        raise RuntimeError("Failed to remove upgrade prompt from js/index.js")
 
-    if (!previous) {
-      await Driver.clearCache()
+    return content
 
-      if (current) {
-        open(
-          'https://www.wappalyzer.com/installed/?utm_source=installed&utm_medium=extension&utm_campaign=wappalyzer'
-        )
 
-        const termsAccepted =
-          agent === 'chrome' || (await getOption('termsAccepted', false))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-        if (!termsAccepted) {
-          open(chrome.runtime.getURL('html/terms.html'))
-        }
-      }
-    } else if (current && current !== previous && upgradeMessage) {
-      open(
-        `https://www.wappalyzer.com/upgraded/?utm_source=upgraded&utm_medium=extension&utm_campaign=wappalyzer`,
-        false
-      )
-    }
-"""
+with tempfile.TemporaryDirectory(prefix="wappalyzer-update-") as tempdir:
+    tempdir = Path(tempdir)
+    archive_path = tempdir / "wappalyzer.xpi"
+    extract_dir = tempdir / "wappalyzer"
 
-# Read, replace, and write back to the file
-try:
-    with open(file_path, "r") as file:
-        content = file.read()
+    urllib.request.urlretrieve(URL, archive_path)
 
-    # Replace `old_text` with `new_text`
-    if re.search(re.escape(old_text.strip()), content, flags=re.DOTALL):
-        updated_content = re.sub(
-            re.escape(old_text.strip()), new_text.strip(), content, flags=re.DOTALL
-        )
-        print("Replaced the old block of text successfully.")
-        found += 1
-    else:
-        print("Old block of text not found in the file.")
-        updated_content = content
+    with zipfile.ZipFile(archive_path) as archive:
+        archive.extractall(extract_dir)
 
-    # Remove `rem` block
-    if re.search(re.escape(rem.strip()), updated_content, flags=re.DOTALL):
-        updated_content = re.sub(
-            re.escape(rem.strip()), "", updated_content, flags=re.DOTALL
-        )
-        print("Removed the specified block of text successfully.")
-        found += 1
+    index_path = extract_dir / "js" / "index.js"
+    index_path.write_text(
+        patch_index_js(index_path.read_text(encoding="utf-8")),
+        encoding="utf-8",
+    )
 
-    else:
-        print("Block of text to remove not found in the file.")
+    technologies = {}
+    for path in sorted((extract_dir / "technologies").glob("*.json")):
+        technologies.update(json.loads(path.read_text(encoding="utf-8")))
 
-    # Write the updated content back to the file
-    with open(file_path, "w") as file:
-        file.write(updated_content)
-    if found == 2:
-        print("File updated successfully.")
-    else:
-        print("hmm looks like there was an error friend!")
+    (DATA_DIR / "technologies.json").write_text(
+        json.dumps(technologies, indent=4) + "\n",
+        encoding="utf-8",
+    )
+    shutil.copy2(extract_dir / "groups.json", DATA_DIR / "groups.json")
+    shutil.copy2(extract_dir / "categories.json", DATA_DIR / "categories.json")
 
-    directory = "wappalyzer/technologies"
-    output_file = "../wappalyzer/data/technologies.json"
-    data = {}
-    for filename in glob.glob(os.path.join(directory, "*.json")):
-        with open(filename, "r") as file:
-            json_data = json.load(file)
-            data.update(json_data)
-    with open(output_file, "w+") as file:
-        json.dump(data, file, indent=4)
-    # move wappalyzer/groups.json and wappalyzer/categories.json to current directory
-    shutil.copy("wappalyzer/groups.json", "../wappalyzer/data/groups.json")
-    shutil.copy("wappalyzer/categories.json", "../wappalyzer/data/categories.json")
-
-except Exception as e:
-    print(f"An error occurred: {e}")
-try:
-    with zipfile.ZipFile(finname, "w", zipfile.ZIP_DEFLATED) as zipf:
-        # Walk through the folder
-        for foldername, subfolders, filenames in os.walk(exdir):
-            for filename in filenames:
-                # Create a path to the file
-                file_path = os.path.join(foldername, filename)
-                # Add the file to the zip with a relative path
-                arcname = os.path.relpath(file_path, exdir)
-                zipf.write(file_path, arcname)
-
-    print(f"Directory '{exdir}' has been successfully zipped into '{finname}'.")
-    shutil.rmtree(exdir)
-    os.remove(zippath)
-    print(f"successfully deleted extracted directory and '{zippath}' file")
-    shutil.move(finname, "../wappalyzer/data/wappalyzer.xpi")
-    print(f"moved '{finname} 'to data folder, update succesfull.")
-except FileNotFoundError:
-    print(f"Error: The directory '{exdir}' was not found.")
-except Exception as e:
-    print(f"An error occurred: {e}")
+    with zipfile.ZipFile(DATA_DIR / "wappalyzer.xpi", "w", zipfile.ZIP_DEFLATED) as archive:
+        for path in sorted(extract_dir.rglob("*")):
+            if path.is_file():
+                archive.write(path, path.relative_to(extract_dir))
