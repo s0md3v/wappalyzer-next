@@ -13,7 +13,7 @@ from wappalyzer.core.analyzer import http_scan
 from wappalyzer.core.utils import pretty_print, write_to_file
 from wappalyzer.browser.analyzer import DriverPool, cookie_to_cookies, process_url, merge_technologies
 
-def analyze(url, scan_type='full', threads=3, cookie=None):
+def analyze(url, scan_type='full', threads=3, cookie=None, wait_time=5):
     """Analyze a single URL"""
     if scan_type.lower() == 'full':
         driver_pool = None
@@ -23,7 +23,7 @@ def analyze(url, scan_type='full', threads=3, cookie=None):
                 if cookie:
                     for cookie_dict in cookie_to_cookies(cookie):
                         driver.add_cookie(cookie_dict)
-                url, detections = process_url(driver, url)
+                url, detections = process_url(driver, url, wait_time=wait_time)
                 return {url: merge_technologies(detections)}
         finally:
             if driver_pool:
@@ -42,13 +42,17 @@ def main():
     parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
     parser.add_argument('-oH', help='html output file', dest='html_output_file')
     parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
+    parser.add_argument('--wait-time', help='seconds to wait for browser', dest='wait_time', default=5, type=int)
     args = parser.parse_args()
 
     print('\n\t' + bold(green('wappalyzer')) + '\n')
     if not args.input_file:
         parser.print_help()
         exit(22)
-    
+    if args.wait_time <= 0:
+        print("--wait-time must be greater than 0.")
+        exit(22)
+
     result_db = {}
 
     def process_detections(url_detections, scan_type='full'):
@@ -60,13 +64,13 @@ def main():
                 result[url] = detections
         return result
 
-    def process_urls(urls, num_threads=3, cookie=None, scan_type='full', should_print=False):
+    def process_urls(urls, num_threads=3, cookie=None, scan_type='full', should_print=False, wait_time=5):
         """Process multiple URLs using a driver pool"""
         results = {}
         driver_pool = None
         interrupted = False
         
-        def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full'):
+        def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full', wait_time=5):
             """Process URLs from the queue"""
             try:
                 while not interrupted:
@@ -82,7 +86,7 @@ def main():
                                 if cookie:
                                     for cookie_dict in cookie_to_cookies(cookie):
                                         driver.add_cookie(cookie_dict)
-                                url, detections = process_url(driver, url)
+                                url, detections = process_url(driver, url, wait_time=wait_time)
                                 if detections:
                                     with lock:
                                         result_queue.put((url, detections))
@@ -111,7 +115,7 @@ def main():
             for i in range(num_threads):
                 thread = threading.Thread(
                     target=worker,
-                    args=(i, url_queue, result_queue, lock, cookie, scan_type)
+                    args=(i, url_queue, result_queue, lock, cookie, scan_type, wait_time)
                 )
                 thread.daemon = True
                 thread.start()
@@ -160,7 +164,7 @@ def main():
     try:
         if re.search(r'^https?://', args.input_file.lower()):
             should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
-            result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie)
+            result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie, args.wait_time)
             if should_print:
                 pretty_print(result)
         else:
@@ -169,11 +173,11 @@ def main():
                 urls = urls_file.read().splitlines()
                 urls_file.close()
                 should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
-                result = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print)
+                result = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print, wait_time=args.wait_time)
             except FileNotFoundError:
                 if tldextract.extract('http://' + args.input_file).domain != '':
                     should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
-                    result = analyze('http://' + args.input_file, args.scan_type, args.thread_num, args.cookie)
+                    result = analyze('http://' + args.input_file, args.scan_type, args.thread_num, args.cookie, args.wait_time)
                     if should_print:
                         pretty_print(result)
                 else:

@@ -100,6 +100,7 @@ Some common usage examples are given below, refer to list of all options for mor
 - `-oC`: CSV output file path
 - `-oH`: HTML output file path
 - `-c, --cookie`: Cookie header string for authenticated scans
+- `--wait-time`: Amount of seconds to wait for browser-based JavaScript execution in `full` scans (default: 5)
 
 ## For Developers
 
@@ -120,7 +121,8 @@ results = analyze(
     url='https://example.com',
     scan_type='full',  # 'fast', 'balanced', or 'full'
     threads=3,
-    cookie='sessionid=abc123'
+    cookie='sessionid=abc123',
+    wait_time=5
 )
 ```
 
@@ -133,6 +135,7 @@ results = analyze(
   - `'full'`: Complete scan including JavaScript execution (default)
 - `threads` (int, optional): Number of threads for parallel processing (default: 3)
 - `cookie` (str, optional): Cookie header string for authenticated scans
+- `wait_time` (int, optional): Amount of seconds to wait for JavaScript/browser interactions in `'full'` scans (default: 5)
 
 #### Return Value
 

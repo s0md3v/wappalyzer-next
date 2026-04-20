@@ -131,20 +131,20 @@ def cookie_to_cookies(cookie):
             })
     return cookies
 
-def process_url(driver, url):
+def process_url(driver, url, wait_time=5):
     try:
         main_tab = driver.current_window_handle
         initial_handles = set(driver.window_handles)
         
         driver.get(url)
         
-        for i in range(5):
+        for _ in range(wait_time):
             driver.switch_to.window(main_tab)
             driver.execute_script("window.scrollTo(0, Math.random() * 1000)")
             driver.execute_script("var event = new MouseEvent('mousemove', { 'view': window, 'bubbles': true, 'cancelable': true, 'clientX': Math.random() * window.innerWidth, 'clientY': Math.random() * window.innerHeight }); document.dispatchEvent(event);")
             time.sleep(1)
-        
-        # after 5 seconds, process the right-most tab
+
+        # process the right-most tab after wait time has elapsed
         current_handles = driver.window_handles
         if len(current_handles) > 1:
             rightmost_handle = current_handles[-1]
