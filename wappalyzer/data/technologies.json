@@ -3318,7 +3318,6 @@
             "ahrefs-site-verification": ""
         },
         "pricing": [
-            "low",
             "mid"
         ],
         "website": "https://ahrefs.com"
@@ -7370,6 +7369,7 @@
             "generator": "^Astro(?:\\sv([\\d\\.]+))?$\\;version:\\1"
         },
         "oss": true,
+        "scriptSrc": "/_astro/.+\\.js",
         "website": "https://astro.build"
     },
     "Astute Solutions": {
@@ -9650,6 +9650,20 @@
         "scripts": "base-ui\\.com",
         "website": "https://base-ui.com/react/overview/quick-start"
     },
+    "Base44": {
+        "cats": [
+            18
+        ],
+        "description": "Base44 is an AI app builder platform for creating and deploying web applications from natural language prompts.",
+        "dom": "link[href*='supabase.co/storage/v1/object/public/base44-prod/public/'], meta[property='og:image'][content*='supabase.co/storage/v1/render/image/public/base44-prod/public/']",
+        "icon": "default.svg",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "website": "https://base44.com"
+    },
     "BaseKit": {
         "cats": [
             51
@@ -9664,6 +9678,24 @@
         },
         "saas": true,
         "website": "https://www.basekit.com/"
+    },
+    "Baseet": {
+        "cats": [
+            6
+        ],
+        "cookies": {
+            "_baseet_landing_page": ""
+        },
+        "description": "Baseet is an ecommerce platform for building and managing online stores.",
+        "icon": "Baseet.svg",
+        "pricing": [
+            "freemium",
+            "payg",
+            "recurring"
+        ],
+        "saas": true,
+        "url": "^https?://[^/]+\\.baseet\\.cc",
+        "website": "https://www.baseet.cc"
     },
     "Basic": {
         "cats": [
@@ -12517,6 +12549,17 @@
         "saas": true,
         "scripts": "widget\\.bookteq\\.com",
         "website": "https://www.bookteq.com"
+    },
+    "Booljs": {
+        "cats": [
+            12
+        ],
+        "description": "Booljs is a JavaScript framework for building web applications on the Bun runtime.",
+        "headers": {
+            "x-powered-by": "^Bool Typescript$"
+        },
+        "oss": true,
+        "website": "https://booljs.com"
     },
     "Boomerang": {
         "cats": [
@@ -16315,6 +16358,28 @@
         "saas": true,
         "website": "https://casasoft.ch"
     },
+    "Casablanca": {
+        "cats": [
+            72
+        ],
+        "description": "Casablanca is a hotel booking and property management platform for accommodation businesses.",
+        "dom": {
+            "a[href*='://ibe.casablanca.at/']": {
+                "attributes": {
+                    "href": "^https?://ibe\\.casablanca\\.at/(?:[a-z]{2}/)?(?:IBE/)?a_\\d+_[a-z0-9]+(?:[/?#]|$)"
+                }
+            },
+            "iframe[src*='://ibe.casablanca.at/']": {
+                "attributes": {
+                    "src": "^https?://ibe\\.casablanca\\.at/(?:[a-z]{2}/)?(?:IBE/)?a_\\d+_[a-z0-9]+(?:[/?#]|$)"
+                }
+            }
+        },
+        "icon": "default.svg",
+        "saas": true,
+        "scriptSrc": "frontend\\.casablanca\\.at/",
+        "website": "https://casablanca.at"
+    },
     "Casafari": {
         "cats": [
             53
@@ -18961,6 +19026,18 @@
             "/ClientJS/(?:(\\d.*?)/)?\\;version:\\1"
         ],
         "website": "https://clientjs.org"
+    },
+    "ClientXCMS": {
+        "cats": [
+            1
+        ],
+        "description": "ClientXCMS is an open-source client portal and hosting management platform built for web-hosting providers.",
+        "dom": "header#bhNavbar.bh-navbar #dark-mode-btn[data-url$='/darkmode']",
+        "icon": "ClientXCMS.png",
+        "oss": true,
+        "saas": true,
+        "scripts": "bh-navbar__burger|\\[data-bh-reveal\\]",
+        "website": "https://clientxcms.com"
     },
     "Clientacquisition": {
         "cats": [
@@ -29063,6 +29140,7 @@
         "description": "Elm is a statically typed functional programming language created by Evan Czaplicki in 2012 for building web applications.",
         "icon": "elm.svg",
         "js": {
+            "Elm": "",
             "Elm.Main.embed": "\\;version:0.18",
             "Elm.Main.init": "\\;version:0.19"
         },
@@ -31854,6 +31932,17 @@
         "saas": true,
         "website": "https://www.faire.com"
     },
+    "Falakcart": {
+        "cats": [
+            6
+        ],
+        "description": "Falakcart is an ecommerce platform for creating and managing online stores with integrated storefront and checkout tooling.",
+        "headers": {
+            "set-cookie": "falakcart-session="
+        },
+        "saas": true,
+        "website": "https://falakcart.com"
+    },
     "FalguniThemes Nisarg": {
         "cats": [
             80
@@ -33039,7 +33128,8 @@
         ],
         "scripts": [
             "\\.gstatic\\.com/firebasejs/([\\d\\.]+)/\\;version:\\1",
-            "firebase(?:Config|io\\.com)"
+            "firebase(?:Config|io\\.com)",
+            "__FIREBASE_DEFAULTS__|FirebaseError"
         ],
         "website": "https://firebase.google.com",
         "xhr": "fire(?:base|store)\\.googleapis\\.com|\\.firebaseio\\.com"
@@ -37479,7 +37569,10 @@
             75
         ],
         "description": "GetResponse is an email marketing app that allows you to create a mailing list and capture data onto it.",
-        "dom": "form[action*='.getresponse.com/']",
+        "dom": [
+            "getresponse-form",
+            "form[action*='.getresponse.com/']"
+        ],
         "icon": "GetResponse.svg",
         "js": {
             "GRAPP": "",
@@ -40834,17 +40927,6 @@
         "scripts": "\\.hrhotlink\\.com",
         "website": "https://corporate.hrhotlink.com"
     },
-    "HSTS": {
-        "cats": [
-            16
-        ],
-        "description": "HTTP Strict Transport Security (HSTS) informs browsers that the site should only be accessed using HTTPS.",
-        "headers": {
-            "Strict-Transport-Security": ""
-        },
-        "url": "^https://[\\w\\d\\.\\-]+(?:\\.dev)(?:/.+||/)$",
-        "website": "https://www.rfc-editor.org/rfc/rfc6797#section-6.1"
-    },
     "HTTP/2": {
         "cats": [
             19
@@ -41506,6 +41588,24 @@
         "scriptSrc": "\\.helhost\\.com/",
         "website": "https://www.helhost.com"
     },
+    "Helipod": {
+        "cats": [
+            62
+        ],
+        "description": "Helipod is a platform as a service (PaaS) for deploying and running web applications.",
+        "headers": {
+            "server": "^Helipod$",
+            "x-powered-by": "^Helipod$"
+        },
+        "icon": "Helipod.svg",
+        "pricing": [
+            "low",
+            "recurring",
+            "payg"
+        ],
+        "saas": true,
+        "website": "https://helipod.io"
+    },
     "Helix Ultimate": {
         "cats": [
             18
@@ -41860,6 +41960,18 @@
             "recurring"
         ],
         "website": "https://www.hetzner.com"
+    },
+    "Heureka Conversion Measurement": {
+        "cats": [
+            10
+        ],
+        "description": "Heureka Conversion Measurement is a conversion tracking service from the Heureka shopping-comparison network.",
+        "saas": true,
+        "scriptSrc": [
+            "ssl\\.heureka\\.cz/direct/i/gjs\\.php\\?n=wdgt",
+            "www\\.(?:heureka\\.(?:cz|sk)|arukereso\\.hu)/ocm/sdk\\.js"
+        ],
+        "website": "https://www.heureka.cz"
     },
     "Hexia": {
         "cats": [
@@ -45658,6 +45770,20 @@
         "saas": true,
         "scriptSrc": "tools\\.inticeinc\\.com",
         "website": "https://intice.com"
+    },
+    "Intlayer": {
+        "cats": [
+            59
+        ],
+        "description": "Intlayer is an internationalization framework and content management platform for JavaScript applications.",
+        "icon": "Intlayer.svg",
+        "js": {
+            "intlayer.enabled": ""
+        },
+        "oss": true,
+        "saas": true,
+        "scriptSrc": "IntlayerProvider-[\\w-]+\\.js",
+        "website": "https://intlayer.org"
     },
     "Invenio": {
         "cats": [
@@ -56743,6 +56869,20 @@
         "scripts": "\\.maxxton\\.net",
         "website": "https://maxxton.com"
     },
+    "Mayson": {
+        "cats": [
+            51
+        ],
+        "description": "Mayson is an AI-powered website and app builder platform.",
+        "dom": "link[href*='app.mayson.dev/icons/brand-logo-192x192.png']",
+        "icon": "Mayson.png",
+        "js": {
+            "__MAYSON": ""
+        },
+        "saas": true,
+        "scriptSrc": "\\.mayson\\.app/assets/index-[A-Za-z0-9]+\\.js",
+        "website": "https://mayson.dev"
+    },
     "Mazeed+": {
         "cats": [
             76
@@ -58302,13 +58442,16 @@
         "js": {
             "__NEXT_DATA__.props.pageProps.favicons.browserconfig": "mintlify\\..+\\.amazonaws\\.com"
         },
+        "meta": {
+            "generator": "^Mintlify$"
+        },
         "pricing": [
             "freemium",
             "mid",
             "recurring"
         ],
         "saas": true,
-        "scripts": "\\.mintlify\\.app",
+        "scripts": "\\.mintlify\\.app|/mintlify-assets/_next/static/",
         "website": "https://mintlify.com"
     },
     "Mintox": {
@@ -61668,7 +61811,6 @@
         "pricing": [
             "freemium",
             "payg",
-            "low",
             "mid",
             "recurring"
         ],
@@ -61853,6 +61995,7 @@
             "__NEXT_DATA__": "",
             "next.version": "^(.+)$\\;version:\\1"
         },
+        "scriptSrc": "/_next/static/",
         "website": "https://nextjs.org"
     },
     "NextAuth.js": {
@@ -65313,6 +65456,19 @@
         "scriptSrc": "c\\.oracleinfinity\\.io",
         "website": "https://www.oracle.com/cx/marketing/digital-intelligence/"
     },
+    "Oracle Linux": {
+        "cats": [
+            28
+        ],
+        "cpe": "cpe:2.3:o:oracle:linux:*:*:*:*:*:*:*:*",
+        "description": "Oracle Linux is an enterprise Linux distribution by Oracle, designed for cloud and on-premises workloads.",
+        "headers": {
+            "server": "\\(Oracle Linux(?: Server)?\\)"
+        },
+        "icon": "Oracle.svg",
+        "oss": true,
+        "website": "https://www.oracle.com/linux/"
+    },
     "Oracle Maxymiser": {
         "cats": [
             74,
@@ -65394,7 +65550,7 @@
     },
     "Orange CDB": {
         "cats": [
-            32
+            31
         ],
         "description": "Orange CDB is a content delivery network (CDN) and edge computing solution that accelerates content distribution, improves traffic handling, and enhances performance by delivering web resources through geographically distributed servers.",
         "headers": {
@@ -66608,7 +66764,7 @@
             37
         ],
         "description": "Paessler is a network monitoring platform that provides complete visibility into IT infrastructure through a single solution, helping detect, analyze, and resolve performance issues across systems and devices.",
-        "dom": "span[class*='paesslerlogo'] > a[href*'www.paessler.com']",
+        "dom": "span[class*='paesslerlogo'] > a[href*='www.paessler.com']",
         "icon": "Paessler.svg",
         "pricing": [
             "low",
@@ -67814,6 +67970,10 @@
             "X-Powered-By": "Payload"
         },
         "icon": "PayloadCMS.svg",
+        "meta": {
+            "og:description": "Payload is a headless CMS and application framework built with TypeScript, Node\\.js, and React\\.",
+            "og:site_name": "^Payload App$"
+        },
         "oss": true,
         "pricing": [
             "freemium",
@@ -71623,9 +71783,11 @@
             "mid",
             "recurring"
         ],
-        "requiresCategory": 12,
         "saas": true,
-        "scriptSrc": "\\.prepr\\.io/",
+        "scriptSrc": [
+            "\\.prepr\\.io/",
+            "cdn\\.tracking\\.prepr\\.io/js/prepr_v2\\.min\\.js"
+        ],
         "scripts": "\\.files\\.prepr\\.io",
         "website": "https://prepr.io"
     },
@@ -79246,6 +79408,17 @@
         "saas": true,
         "website": "https://rive.app"
     },
+    "Rivo": {
+        "cats": [
+            84
+        ],
+        "description": "Rivo is a Shopify loyalty and referrals platform.",
+        "icon": "Rivo.png",
+        "requires": "Shopify",
+        "saas": true,
+        "scriptSrc": "cdn\\.shopify\\.com/extensions/[^/]+/rivo-loyalty-rewards-referrals-\\d+/assets/rivo-app-embed\\.js",
+        "website": "https://www.rivo.io"
+    },
     "Rivyo": {
         "cats": [
             100
@@ -84321,6 +84494,7 @@
             "low"
         ],
         "saas": true,
+        "scriptSrc": "/application/assets/storefront/shoper",
         "website": "https://www.shoper.pl"
     },
     "Shopfa": {
@@ -87437,6 +87611,20 @@
         "saas": true,
         "scriptSrc": "\\.smartsuppchat\\.com",
         "website": "https://www.smartsupp.com"
+    },
+    "Smartypilot": {
+        "cats": [
+            29
+        ],
+        "description": "Smartypilot is an ecommerce AI suite that provides semantic search, chatbot assistance, and product question answering.",
+        "icon": "Smartypilot.png",
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": "hub\\.smartypilot\\.ai/smartypilot-(chatbot-)?lib/",
+        "website": "https://smartypilot.ai"
     },
     "Smash Balloon Instagram Feed": {
         "cats": [
@@ -90633,7 +90821,10 @@
             "Stimulus.Application": "",
             "stimulus_application": ""
         },
-        "scripts": "/stimulus-bundle/controllers\\.js",
+        "scripts": [
+            "/stimulus-bundle/controllers\\.js",
+            "@hotwired/stimulus(?:-loading)?"
+        ],
         "website": "https://stimulusjs.org/"
     },
     "StimulusReflex": {
@@ -93717,7 +93908,7 @@
         "description": "Tailwind CSS is a utility-first CSS framework for building custom user interfaces.",
         "dom": {
             "body [class]": {
-                "class": "\\b(?:flex|grid|text-(?:xs|sm|base|lg|xl)|bg-[a-z]+-[0-9]{3}|px-\\d+|py-\\d+|rounded(?:-[a-z]+)?|shadow(?:-[a-z]+)?)\\b\\;confidence:50"
+                "class": "\\b(?:flex|grid|text-(?:xs|sm|base|lg|xl)|bg-[a-z]+-[0-9]{3}|px-\\d+|py-\\d+|rounded(?:-[a-z]+)?|shadow(?:-[a-z]+)?|[a-z-]+-\\[[^\\]]+\\])\\b\\;confidence:50"
             },
             "link[rel='stylesheet'][href*='.css']": {
                 "attributes": {
@@ -93948,7 +94139,11 @@
             59
         ],
         "description": "TanStack is a set of headless JavaScript libraries for building web application features such as data fetching, tables, routing, virtualization, and state management.",
-        "dom": "link[href*='@tanstack']",
+        "dom": [
+            "link[href*='@tanstack']",
+            "link[rel='modulepreload'][href*='tanstack-query-']",
+            "link[rel='modulepreload'][href*='tanstack-router-']"
+        ],
         "icon": "TanStack.svg",
         "oss": true,
         "scriptSrc": "/static/.*npm\\.tanstack.*\\.js",
