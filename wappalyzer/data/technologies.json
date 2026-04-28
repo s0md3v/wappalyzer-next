@@ -695,6 +695,26 @@
         "requires": "WordPress",
         "website": "https://amp-wp.org"
     },
+    "ANDCommerce": {
+        "cats": [
+            6
+        ],
+        "description": "ANDCommerce is an ecommerce platform for building and operating online stores.",
+        "icon": "ANDCommerce.svg",
+        "meta": {
+            "generator": "^ANDCommerce$"
+        },
+        "pricing": [
+            "low",
+            "recurring"
+        ],
+        "saas": true,
+        "scriptSrc": [
+            "/extension_andcommerce/",
+            "/andcommerce(?:scriptcontent|scriptlayout)_"
+        ],
+        "website": "https://www.andcommerce.com.br/"
+    },
     "ANS": {
         "cats": [
             88,
@@ -7136,7 +7156,7 @@
         "cats": [
             52
         ],
-        "description": "AskSpot is an AI chatbot platform tailored for marketing, digital, and web development agencies.",
+        "description": "AskSpot is an AI customer support platform for ecommerce websites.",
         "icon": "AskSpot.svg",
         "js": {
             "askspot.Chatbot": ""
@@ -7146,8 +7166,12 @@
             "recurring"
         ],
         "saas": true,
-        "scripts": "app\\.askspot\\.ai",
-        "website": "https://askspot.ai"
+        "scriptSrc": [
+            "app\\.askspot\\.ai",
+            "chat\\.askspot\\.io/api/v1/integration/"
+        ],
+        "scripts": "chat\\.askspot\\.io/api/v1/chat-widget/",
+        "website": "https://askspot.io"
     },
     "Askas": {
         "cats": [
@@ -10027,9 +10051,13 @@
             11
         ],
         "description": "BearBlog is a privacy-first blogging platform that uses no trackers, JavaScript, or stylesheets, delivering plain text publishing focused solely on content.",
+        "dom": {
+            "footer a[href='https://bearblog.dev'], footer a[href='https://bearblog.dev/']": {
+                "text": "Bear"
+            }
+        },
         "icon": "BearBlog.svg",
         "oss": true,
-        "scripts": "\\.bearblog\\.dev",
         "website": "https://bearblog.dev"
     },
     "Beaver Builder": {
@@ -35110,6 +35138,26 @@
         "scriptSrc": "pixel\\.forsant\\.io",
         "website": "https://forsant.io"
     },
+    "Forsid": {
+        "cats": [
+            6
+        ],
+        "description": "Forsid is an ecommerce platform for creating and managing online stores.",
+        "headers": {
+            "X-Powered-By": "(?:^|,\\s*)Forsid(?:\\s*,|$)"
+        },
+        "js": {
+            "ForsidMiniCart": "",
+            "__forsid": "",
+            "forsidAnalytics": "",
+            "forsidDL": ""
+        },
+        "meta": {
+            "generator": "^Forsid$"
+        },
+        "saas": true,
+        "website": "https://forsid.com"
+    },
     "Forte": {
         "cats": [
             41
@@ -38232,9 +38280,6 @@
         ],
         "description": "Gleam is a marketing app that aids in expanding business email lists, ecommerce stores, SaaS businesses, and Facebook audiences.",
         "icon": "Gleam.svg",
-        "js": {
-            "Gleam": ""
-        },
         "pricing": [
             "low",
             "recurring"
@@ -49439,7 +49484,8 @@
             "poa"
         ],
         "saas": true,
-        "scripts": "\\.kimonix\\.com",
+        "scriptSrc": "(?:api\\.)?kimonix\\.com/",
+        "scripts": "(?:api\\.)?kimonix\\.com",
         "website": "https://www.kimonix.com"
     },
     "Kindful": {
@@ -51785,6 +51831,7 @@
             35
         ],
         "description": "Leaflet is the open-source JavaScript library for mobile-friendly interactive maps.",
+        "dom": "link[href*='leaflet.css'], link[href*='leaflet.js'], script[src*='leaflet.js']",
         "icon": "Leaflet.svg",
         "js": {
             "L.DistanceGrid": "",
@@ -80135,6 +80182,7 @@
         "description": "Rust is a multi-paradigm, general-purpose programming language designed for performance and safety, especially safe concurrency.",
         "icon": "Rust.svg",
         "oss": true,
+        "scripts": "TrunkApplicationStarted\\;confidence:100",
         "website": "https://www.rust-lang.org"
     },
     "Ruttl": {
@@ -84594,7 +84642,11 @@
             "sdks\\.shopifycdn\\.com",
             "cdn\\.shopify\\.com"
         ],
-        "scripts": "shopifyTag|cdn\\.shopify\\.com",
+        "scripts": [
+            "shopify\\.content_for_header\\;confidence:50",
+            "cdn\\.shopify\\.com\\;confidence:50",
+            "shopifyTag\\;confidence:50"
+        ],
         "url": "^https?//.+\\.myshopify\\.com",
         "website": "https://shopify.com",
         "xhr": "\\.myshopify\\.com"
@@ -87417,6 +87469,18 @@
         "saas": true,
         "scriptSrc": "sdk\\.smartdx\\.co/",
         "website": "https://smartdx.co"
+    },
+    "SmartEditor2": {
+        "cats": [
+            24
+        ],
+        "description": "SmartEditor2 is an open-source JavaScript WYSIWYG HTML editor from NAVER.",
+        "js": {
+            "nhn.husky.EZCreator": ""
+        },
+        "oss": true,
+        "scriptSrc": "/(?:smarteditor2|se2)/.*HuskyEZCreator\\.js",
+        "website": "https://github.com/naver/smarteditor2"
     },
     "SmartEmailing": {
         "cats": [
@@ -94147,7 +94211,10 @@
         "icon": "TanStack.svg",
         "oss": true,
         "scriptSrc": "/static/.*npm\\.tanstack.*\\.js",
-        "scripts": "(?:https?:)?\\/\\/(?:www\\.)?tanstack\\.com(?:\\/[^\"'>]*)?",
+        "scripts": [
+            "(?:https?:)?\\/\\/(?:www\\.)?tanstack\\.com(?:\\/[^\"'>]*)?",
+            "\\$_TSR\\.router="
+        ],
         "website": "https://tanstack.com"
     },
     "Tangiblee": {
