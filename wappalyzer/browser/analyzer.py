@@ -28,7 +28,7 @@ EXTENSION_UUIDS_PREF = re.compile(
 
 POPUP_HELPER_SCRIPT = """
 if (!window.__wappalyzerGetDetectionsForTarget) {
-  window.__wappalyzerGetDetectionsForTarget = async (targetUrl) => {
+  window.__wappalyzerGetDetectionsForTarget = async (targetUrl, hardMaxMs) => {
     const parseUrl = (value) => {
       try {
         return new URL(value)
@@ -172,6 +172,124 @@ if (!window.__wappalyzerGetDetectionsForTarget) {
         .sort()
         .join('|')
 
+    const pageActivityScript = `(() => {
+            const now = performance.now()
+
+            if (!window.__wappalyzerActivityStarted) {
+              window.__wappalyzerActivityStarted = true
+              window.__wappalyzerLastMutationAt = now
+              window.__wappalyzerMutationCount = 0
+
+              try {
+                new MutationObserver(() => {
+                  window.__wappalyzerLastMutationAt = performance.now()
+                  window.__wappalyzerMutationCount += 1
+                }).observe(document.documentElement, {
+                  childList: true,
+                  subtree: true,
+                  attributes: true,
+                })
+              } catch (_) {}
+            }
+
+            const relevantTypes = new Set(['script', 'fetch', 'xmlhttprequest', 'beacon', 'css'])
+            let relevantCount = 0
+            let lastRelevantAt = 0
+
+            try {
+              for (const entry of performance.getEntriesByType('resource')) {
+                if (!relevantTypes.has(entry.initiatorType)) {
+                  continue
+                }
+
+                relevantCount += 1
+                lastRelevantAt = Math.max(
+                  lastRelevantAt,
+                  entry.responseEnd || entry.startTime || 0
+                )
+              }
+            } catch (_) {}
+
+            return {
+              readyState: document.readyState,
+              relevantCount,
+              lastRelevantAge: lastRelevantAt ? now - lastRelevantAt : null,
+              lastMutationAge: window.__wappalyzerLastMutationAt
+                ? now - window.__wappalyzerLastMutationAt
+                : null,
+              mutationCount: window.__wappalyzerMutationCount || 0,
+            }
+          })()`
+    const pageActivity = async (selectedTab) => {
+      try {
+        let results = null
+
+        if (typeof browser !== 'undefined' && browser.tabs?.executeScript) {
+          results = await browser.tabs.executeScript(selectedTab.id, {
+            code: pageActivityScript,
+          })
+        } else if (typeof chrome !== 'undefined' && chrome.scripting?.executeScript) {
+          results = await chrome.scripting.executeScript({
+            target: { tabId: selectedTab.id },
+            func: () => {
+              const now = performance.now()
+
+              if (!window.__wappalyzerActivityStarted) {
+                window.__wappalyzerActivityStarted = true
+                window.__wappalyzerLastMutationAt = now
+                window.__wappalyzerMutationCount = 0
+
+                try {
+                  new MutationObserver(() => {
+                    window.__wappalyzerLastMutationAt = performance.now()
+                    window.__wappalyzerMutationCount += 1
+                  }).observe(document.documentElement, {
+                    childList: true,
+                    subtree: true,
+                    attributes: true,
+                  })
+                } catch (_) {}
+              }
+
+              const relevantTypes = new Set(['script', 'fetch', 'xmlhttprequest', 'beacon', 'css'])
+              let relevantCount = 0
+              let lastRelevantAt = 0
+
+              try {
+                for (const entry of performance.getEntriesByType('resource')) {
+                  if (!relevantTypes.has(entry.initiatorType)) {
+                    continue
+                  }
+
+                  relevantCount += 1
+                  lastRelevantAt = Math.max(
+                    lastRelevantAt,
+                    entry.responseEnd || entry.startTime || 0
+                  )
+                }
+              } catch (_) {}
+
+              return {
+                readyState: document.readyState,
+                relevantCount,
+                lastRelevantAge: lastRelevantAt ? now - lastRelevantAt : null,
+                lastMutationAge: window.__wappalyzerLastMutationAt
+                  ? now - window.__wappalyzerLastMutationAt
+                  : null,
+                mutationCount: window.__wappalyzerMutationCount || 0,
+              }
+            },
+          })
+
+          results = results.map((item) => item.result)
+        }
+
+        return Array.isArray(results) && results[0] ? results[0] : { unavailable: true }
+      } catch (_) {
+        return { unavailable: true }
+      }
+    }
+
     const target = parseUrl(targetUrl)
 
     if (!target || !/^https?:$/.test(target.protocol)) {
@@ -186,10 +304,14 @@ if (!window.__wappalyzerGetDetectionsForTarget) {
 
     let detections = []
     let lastSignature = ''
+    let lastActivitySignature = ''
     let stablePolls = 0
     const startedAt = Date.now()
+    const minWaitMs = 2000
+    const quietMs = 1000
+    const maxWaitMs = Math.max(1000, Number(hardMaxMs) || 6000)
 
-    for (let attempt = 0; attempt < 12; attempt += 1) {
+    for (let attempt = 0; ; attempt += 1) {
       const response = await getDetections(selectedTab)
 
       if (response?.__error) {
@@ -198,15 +320,42 @@ if (!window.__wappalyzerGetDetectionsForTarget) {
 
       detections = response
       const signature = detectionSignature(detections)
+      const activity = await pageActivity(selectedTab)
+      const activitySignature = [
+        activity.readyState || '',
+        activity.relevantCount || 0,
+        activity.mutationCount || 0,
+      ].join(':')
 
-      if (signature && signature === lastSignature) {
+      if (
+        signature === lastSignature &&
+        activitySignature === lastActivitySignature
+      ) {
         stablePolls += 1
       } else {
         stablePolls = 0
         lastSignature = signature
+        lastActivitySignature = activitySignature
       }
 
-      if (signature && stablePolls >= 2 && Date.now() - startedAt >= 2000) {
+      const elapsed = Date.now() - startedAt
+      const recentResource =
+        activity.lastRelevantAge !== null && activity.lastRelevantAge < quietMs
+      const recentMutation =
+        activity.lastMutationAge !== null && activity.lastMutationAge < quietMs
+      const activityUnavailable = activity.unavailable === true
+      const pageComplete = activityUnavailable || activity.readyState === 'complete'
+      const pageQuiet =
+        activityUnavailable || (pageComplete && !recentResource && !recentMutation)
+      const stableEnough = signature
+        ? stablePolls >= 2 && elapsed >= minWaitMs
+        : pageQuiet && stablePolls >= 2 && elapsed >= minWaitMs
+
+      if (stableEnough && pageQuiet) {
+        break
+      }
+
+      if (elapsed >= maxWaitMs) {
         break
       }
 
@@ -225,6 +374,7 @@ if (!window.__wappalyzerGetDetectionsForTarget) {
 
 GET_DETECTIONS_SCRIPT = """
 const targetUrl = arguments[0]
+const hardMaxMs = arguments[1]
 const done = arguments[arguments.length - 1]
 
 ;(async () => {
@@ -234,7 +384,7 @@ const done = arguments[arguments.length - 1]
     return
   }
 
-  done(await window.__wappalyzerGetDetectionsForTarget(targetUrl))
+  done(await window.__wappalyzerGetDetectionsForTarget(targetUrl, hardMaxMs))
 })().catch((error) => done({ error: error.message || String(error) }))
 """
 
@@ -373,6 +523,8 @@ def _ensure_popup_tab(driver):
 
 def _get_detections_for_current_tab(driver, target_url):
     main_tab = driver.current_window_handle
+    script_timeout = getattr(driver, "_wappalyzer_script_timeout", 15)
+    detection_timeout_ms = min(10000, max(1000, int((script_timeout - 1) * 1000)))
 
     try:
         _ensure_popup_tab(driver)
@@ -380,6 +532,7 @@ def _get_detections_for_current_tab(driver, target_url):
         detections = driver.execute_async_script(
             GET_DETECTIONS_SCRIPT,
             target_url,
+            detection_timeout_ms,
         )
 
         if isinstance(detections, dict):
@@ -642,7 +795,9 @@ class DriverPool:
                         existing_addons = getattr(driver, "_wappalyzer_temp_addons", ())
                         driver._wappalyzer_temp_addons = tuple(existing_addons) + tuple(created_addons)
                 driver.set_page_load_timeout(self.timeout)
-                driver.set_script_timeout(max(5, min(self.timeout, 15)))
+                script_timeout = max(5, min(self.timeout, 15))
+                driver.set_script_timeout(script_timeout)
+                driver._wappalyzer_script_timeout = script_timeout
                 _get_extension_uuid(driver)
                 return driver
             except Exception as e:
