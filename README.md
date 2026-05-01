@@ -80,9 +80,9 @@ docker compose run --rm wappalyzer -i https://example.com -oJ output.json
 ## For Users
 Some common usage examples are given below, refer to list of all options for more information.
 
-- Scan a single URL:
-`wappalyzer -i https://example.com`
-- Scan multiple URLs from a file: `wappalyzer -i urls.txt -t 10`
+- Scan a single URL: `wappalyzer -i https://example.com`
+- Scan multiple URLs from a file: `wappalyzer -i urls.txt -w 10`
+- Set page-load timeout for full scans: `wappalyzer -i urls.txt -t 15`
 - Scan with authentication: `wappalyzer -i https://example.com -c "sessionid=abc123; token=xyz789"`
 - Export results to JSON: `wappalyzer -i https://example.com -oJ results.json`
 
@@ -95,7 +95,8 @@ Some common usage examples are given below, refer to list of all options for mor
   - `fast`: Quick HTTP-based scan (sends 1 request)
   - `balanced`: HTTP-based scan with more requests
   - `full`: Complete scan using wappalyzer extension
-- `-t, --threads`: Number of concurrent threads (default: 5)
+- `-w, --workers`: Number of concurrent workers (default: 5; full scans are capped at 3)
+- `-t, --timeout`: Maximum seconds to wait for a page load in full scans (default: 30)
 - `-oJ`: JSON output file path
 - `-oC`: CSV output file path
 - `-oH`: HTML output file path
@@ -119,8 +120,9 @@ results = analyze('https://example.com')
 results = analyze(
     url='https://example.com',
     scan_type='full',  # 'fast', 'balanced', or 'full'
-    threads=3,
-    cookie='sessionid=abc123'
+    workers=3,
+    cookie='sessionid=abc123',
+    timeout=30
 )
 ```
 
@@ -131,8 +133,9 @@ results = analyze(
   - `'fast'`: Quick HTTP-based scan
   - `'balanced'`: HTTP-based scan with more requests
   - `'full'`: Complete scan including JavaScript execution (default)
-- `threads` (int, optional): Number of threads for parallel processing (default: 3)
+- `workers` (int, optional): Number of concurrent workers for parallel processing (default: 3)
 - `cookie` (str, optional): Cookie header string for authenticated scans
+- `timeout` (int, optional): Maximum seconds to wait for a page load in full scans (default: 30)
 
 #### Return Value
 

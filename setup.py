@@ -10,7 +10,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='wappalyzer',
-    version='1.0.23',
+    version='2.0.0',
     description='Wappalyzer-based tech stack detection library',
     long_description=desc,
     long_description_content_type='text/markdown',
@@ -18,11 +18,12 @@ setup(
     author_email='s0md3v@gmail.com',
     license='GNU General Public License v3',
     url='https://github.com/s0md3v/wappalyzer-next',
-    download_url='https://github.com/s0md3v/wappalyzer-next/archive/1.0.23.zip',
     packages=find_packages(),
     package_data={'wappalyzer': ['data/*']},
+    python_requires='>=3.9',
     install_requires=[
         'requests',
+        'urllib3',
         'huepy',
         'selenium',
         'tldextract',
@@ -35,7 +36,15 @@ setup(
         'Intended Audience :: Information Technology',
         'Operating System :: OS Independent',
         'Topic :: Security',
-        'Programming Language :: Python :: 3.4',
+        'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.9',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
     ],
     entry_points={
         'console_scripts': [

@@ -1,6 +1,7 @@
 import os
 import json
 import re
+import sys
 import time
 import threading
 import concurrent.futures
@@ -382,7 +383,7 @@ def _get_detections_for_current_tab(driver, target_url):
 
         if isinstance(detections, dict):
             if detections.get("error"):
-                print(f"Wappalyzer extension error: {detections['error']}")
+                print(f"Wappalyzer extension error: {detections['error']}", file=sys.stderr)
 
             detections = detections.get("detections", [])
 
@@ -506,7 +507,7 @@ class DriverPool:
                 if driver:
                     self.pool.put(driver)
             except Exception as e:
-                print(f"Failed to initialize driver: {str(e)}")
+                    print(f"Failed to initialize driver: {str(e)}", file=sys.stderr)
         else:
             with concurrent.futures.ThreadPoolExecutor(max_workers=size) as executor:
                 futures = [executor.submit(self._create_driver) for _ in range(size)]
@@ -525,7 +526,7 @@ class DriverPool:
                             if should_quit:
                                 _quit_driver(driver)
                     except Exception as e:
-                        print(f"Failed to initialize driver: {str(e)}")
+                        print(f"Failed to initialize driver: {str(e)}", file=sys.stderr)
 
     def _create_driver(self):
         """Create a new Firefox driver with retry logic"""
@@ -571,7 +572,7 @@ class DriverPool:
                 _get_extension_uuid(driver)
                 return driver
             except Exception as e:
-                print(f"Attempt {attempt + 1} failed: {str(e)}")
+                print(f"Attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
                 time.sleep(1)
                 
         return None
@@ -584,7 +585,7 @@ class DriverPool:
             driver = self.pool.get(timeout=30)  # Wait up to 30 seconds for a driver
             yield driver
         except Exception as e:
-            print(f"Error with driver: {str(e)}")
+            print(f"Error with driver: {str(e)}", file=sys.stderr)
             if driver:
                 try:
                     _quit_driver(driver)  # Ensure driver is quit on error
@@ -656,7 +657,7 @@ class DriverPool:
             except Empty:  # Use Empty directly
                 break
             except Exception as e:
-                print(f"Error during cleanup: {str(e)}")
+                print(f"Error during cleanup: {str(e)}", file=sys.stderr)
 
         def quit_driver(driver):
             try:
@@ -710,7 +711,7 @@ def process_url(driver, url):
         return url, _get_detections_for_current_tab(driver, driver.current_url)
         
     except Exception as e:
-        print(f"Error processing: {url}")
+        print(f"Error processing: {url}", file=sys.stderr)
         return url, []
     finally:
         popup_handle = getattr(driver, "_wappalyzer_popup_handle", None)

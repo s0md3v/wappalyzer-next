@@ -1,4 +1,5 @@
 import requests
+import sys
 import urllib3
 from wappalyzer.core.config import config
 
@@ -27,5 +28,5 @@ def get_response(url, cookie=None, **kwargs):
         response = requests.get(url, headers=headers, verify=False, **kwargs)
         return response
     except requests.exceptions.RequestException as e:
-        print(e)
+        print(e, file=sys.stderr)
         return None
