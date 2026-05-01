@@ -5,7 +5,6 @@ import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
-from textwrap import dedent
 
 
 URL = "https://addons.mozilla.org/firefox/downloads/latest/wappalyzer/platform:2/wappalyzer.xpi"
@@ -19,123 +18,9 @@ PROMPT_BLOCK = re.compile(
     re.MULTILINE | re.DOTALL,
 )
 
-PERSIST_HOSTNAMES = re.compile(
-    r"(?P<indent>^[ \t]*)async persistHostnames\(\) \{\n"
-    r".*?"
-    r"^(?P=indent)\},\n",
-    re.MULTILINE | re.DOTALL,
-)
-
-LEGACY_HOSTNAMES = re.compile(
-    r"(?P<indent>^[ \t]*)await setOption\(\n"
-    r"(?P=indent)  'hostnames',\n"
-    r".*?"
-    r"^(?P=indent)\)\n",
-    re.MULTILINE | re.DOTALL,
-)
-
-
-def indent(text, prefix):
-    lines = dedent(text).strip("\n").splitlines()
-    return "\n".join(f"{prefix}{line}" if line else "" for line in lines) + "\n"
-
 
 def patch_index_js(content):
     content = PROMPT_BLOCK.sub("", content, count=1)
-
-    content, persist_count = PERSIST_HOSTNAMES.subn(
-        lambda match: indent(
-            """
-            async persistHostnames() {
-              Driver.pruneHostnamesCache()
-
-              const hostnames = {}
-
-              for (const hostname of Object.keys(Driver.cache.hostnames)) {
-                const cache = Driver.cache.hostnames[hostname]
-
-                hostnames[hostname] = {
-                  ...cache,
-                  detections: cache.detections
-                    .filter(({ technology }) => technology)
-                    .map(
-                      ({
-                        technology: { name: technology },
-                        pattern: { regex, confidence },
-                        version,
-                        rootPath,
-                        lastUrl,
-                      }) => ({
-                        technology,
-                        pattern: {
-                          regex: regex.source,
-                          confidence,
-                        },
-                        version,
-                        rootPath,
-                        lastUrl,
-                      })
-                    ),
-                }
-              }
-
-              browser.tabs.create({
-                url: JSON.stringify(hostnames),
-              })
-            },
-            """,
-            match.group("indent"),
-        ),
-        content,
-        count=1,
-    )
-
-    if not persist_count:
-        content, legacy_count = LEGACY_HOSTNAMES.subn(
-            lambda match: indent(
-                """
-                browser.tabs.create({
-                  url: JSON.stringify(
-                    Object.keys(Driver.cache.hostnames).reduce(
-                      (hostnames, hostname) => ({
-                        ...hostnames,
-                        [hostname]: {
-                          ...cache,
-                          detections: Driver.cache.hostnames[hostname].detections
-                            .filter(({ technology }) => technology)
-                            .map(
-                              ({
-                                technology: { name: technology },
-                                pattern: { regex, confidence },
-                                version,
-                                rootPath,
-                                lastUrl,
-                              }) => ({
-                                technology,
-                                pattern: {
-                                  regex: regex.source,
-                                  confidence,
-                                },
-                                version,
-                                rootPath,
-                                lastUrl,
-                              })
-                            ),
-                        },
-                      }),
-                      {}
-                    )
-                  ),
-                })
-                """,
-                match.group("indent"),
-            ),
-            content,
-            count=1,
-        )
-
-        if not legacy_count:
-            raise RuntimeError("Failed to patch js/index.js")
 
     if "https://www.wappalyzer.com/installed/" in content:
         raise RuntimeError("Failed to remove install prompt from js/index.js")

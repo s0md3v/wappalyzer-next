@@ -1,24 +1,22 @@
 import argparse
 import queue
 import re
-import sys
 import threading
 import tldextract
 
 from queue import Queue
 from huepy import bold, green
 
-from wappalyzer.core.requester import get_response
 from wappalyzer.core.analyzer import http_scan
 from wappalyzer.core.utils import pretty_print, write_to_file
 from wappalyzer.browser.analyzer import DriverPool, cookie_to_cookies, process_url, merge_technologies
 
-def analyze(url, scan_type='full', threads=3, cookie=None):
+def analyze(url, scan_type='full', threads=3, cookie=None, timeout=30):
     """Analyze a single URL"""
     if scan_type.lower() == 'full':
         driver_pool = None
         try:
-            driver_pool = DriverPool(size=1)  # Single driver for one URL
+            driver_pool = DriverPool(size=1, timeout=timeout)  # Single driver for one URL
             with driver_pool.get_driver() as driver:
                 if cookie:
                     for cookie_dict in cookie_to_cookies(cookie):
@@ -42,6 +40,7 @@ def main():
     parser.add_argument('-oC', help='csv output file', dest='csv_output_file')
     parser.add_argument('-oH', help='html output file', dest='html_output_file')
     parser.add_argument('-c', '--cookie', help='cookie string', dest='cookie')
+    parser.add_argument('--timeout', help='maximum seconds to wait for a page load in full scans', dest='timeout', default=30, type=int)
     args = parser.parse_args()
 
     print('\n\t' + bold(green('wappalyzer')) + '\n')
@@ -49,22 +48,15 @@ def main():
         parser.print_help()
         exit(22)
     
-    result_db = {}
-
-    def process_detections(url_detections, scan_type='full'):
-        result = {}
-        for url, detections in url_detections:
-            if scan_type == 'full':
-                result[url] = merge_technologies(detections)
-            else:
-                result[url] = detections
-        return result
-
-    def process_urls(urls, num_threads=3, cookie=None, scan_type='full', should_print=False):
+    def process_urls(urls, num_threads=3, cookie=None, scan_type='full', should_print=False, timeout=30):
         """Process multiple URLs using a driver pool"""
         results = {}
         driver_pool = None
         interrupted = False
+        urls = [url for url in urls if url]
+
+        if not urls:
+            return results
         
         def worker(worker_id, url_queue, result_queue, lock, cookie, scan_type='full'):
             """Process URLs from the queue"""
@@ -98,7 +90,8 @@ def main():
                 print(f"Worker {worker_id} encountered an error: {str(e)}")
         
         try:
-            driver_pool = DriverPool(size=min(num_threads, 3)) if scan_type == 'full' else None  # Limit max concurrent drivers
+            worker_count = min(num_threads, 3, len(urls)) if scan_type == 'full' else min(num_threads, len(urls))
+            driver_pool = DriverPool(size=worker_count, timeout=timeout) if scan_type == 'full' else None  # Limit max concurrent drivers
             
             url_queue = Queue()
             result_queue = Queue()
@@ -108,12 +101,11 @@ def main():
             threads = []
             lock = threading.Lock()
             
-            for i in range(num_threads):
+            for i in range(worker_count):
                 thread = threading.Thread(
                     target=worker,
                     args=(i, url_queue, result_queue, lock, cookie, scan_type)
                 )
-                thread.daemon = True
                 thread.start()
                 threads.append(thread)
                 
@@ -123,6 +115,9 @@ def main():
             except KeyboardInterrupt:
                 interrupted = True
                 print("\nInterrupted! Saving partial results...")
+
+            for thread in threads:
+                thread.join()
             
             # Process available results
             while not result_queue.empty():
@@ -160,7 +155,7 @@ def main():
     try:
         if re.search(r'^https?://', args.input_file.lower()):
             should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
-            result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie)
+            result = analyze(args.input_file, args.scan_type, args.thread_num, args.cookie, args.timeout)
             if should_print:
                 pretty_print(result)
         else:
@@ -169,11 +164,11 @@ def main():
                 urls = urls_file.read().splitlines()
                 urls_file.close()
                 should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
-                result = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print)
+                result = process_urls(urls, args.thread_num, args.cookie, args.scan_type, should_print=should_print, timeout=args.timeout)
             except FileNotFoundError:
                 if tldextract.extract('http://' + args.input_file).domain != '':
                     should_print = not (args.json_output_file or args.csv_output_file or args.html_output_file)
-                    result = analyze('http://' + args.input_file, args.scan_type, args.thread_num, args.cookie)
+                    result = analyze('http://' + args.input_file, args.scan_type, args.thread_num, args.cookie, args.timeout)
                     if should_print:
                         pretty_print(result)
                 else:
