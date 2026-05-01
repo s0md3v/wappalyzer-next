@@ -1,5 +1,6 @@
+import asyncio
+import concurrent.futures
 import threading
-from queue import Empty, Queue
 
 from wappalyzer.browser.analyzer import (
     DriverPool,
@@ -10,9 +11,135 @@ from wappalyzer.browser.analyzer import (
 from wappalyzer.core.analyzer import http_scan
 
 
+class _LoopRunner:
+    def __init__(self):
+        self.loop = asyncio.new_event_loop()
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    def _run(self):
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_forever()
+
+    def run(self, coro):
+        future = asyncio.run_coroutine_threadsafe(coro, self.loop)
+
+        try:
+            return future.result()
+        except KeyboardInterrupt:
+            future.cancel()
+            raise
+
+    def close(self):
+        self.loop.call_soon_threadsafe(self.loop.stop)
+        self.thread.join()
+
+
+class _FullScanBackend:
+    MAX_BROWSER_WORKERS = 3
+
+    def __init__(self, workers=1, timeout=30):
+        self.workers = workers
+        self.timeout = timeout
+        self.pool = None
+        self.pool_size = 0
+
+    async def ensure_pool(self, size):
+        if self.pool:
+            if size > self.pool_size:
+                await self.pool.grow_to(size)
+                self.pool_size = size
+
+            return
+
+        pool = DriverPool(size=size, timeout=self.timeout)
+
+        try:
+            await pool.start()
+        except Exception:
+            await pool.cleanup()
+            raise
+
+        self.pool = pool
+        self.pool_size = size
+
+    async def analyze_url(self, url, cookie=None):
+        await self.ensure_pool(1)
+
+        async with self.pool.get_driver() as driver:
+            if cookie:
+                for cookie_dict in cookie_to_cookies(cookie):
+                    driver.add_cookie(cookie_dict)
+
+            result_url, detections = await process_url(driver, url)
+
+        return result_url, merge_technologies(detections)
+
+    async def analyze_many(self, urls, cookie=None, on_result=None, on_error=None):
+        urls = [url for url in urls if url]
+
+        if not urls:
+            return {}
+
+        worker_count = min(self.workers, self.MAX_BROWSER_WORKERS, len(urls))
+        await self.ensure_pool(worker_count)
+
+        queue = asyncio.Queue()
+        results = {}
+
+        for url in urls:
+            queue.put_nowait(url)
+
+        async def worker():
+            while True:
+                try:
+                    url = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    break
+
+                result_url = url
+                technologies = {}
+                error = None
+
+                try:
+                    result_url, technologies = await self.analyze_url(url, cookie)
+                except Exception as exc:
+                    error = exc
+
+                results[result_url] = technologies
+
+                if error and on_error:
+                    on_error(result_url, error)
+
+                if on_result:
+                    on_result(result_url, technologies)
+
+                queue.task_done()
+
+        workers = [
+            asyncio.create_task(worker())
+            for _ in range(worker_count)
+        ]
+
+        try:
+            await asyncio.gather(*workers)
+        except asyncio.CancelledError:
+            for worker_task in workers:
+                worker_task.cancel()
+
+            raise
+
+        return results
+
+    async def close(self):
+        if self.pool:
+            await self.pool.cleanup()
+            self.pool = None
+            self.pool_size = 0
+
+
 class Wappalyzer:
     SUPPORTED_SCAN_TYPES = {"fast", "balanced", "full"}
-    MAX_BROWSER_WORKERS = 3
 
     def __init__(self, scan_type="full", workers=1, cookie=None, timeout=30):
         scan_type = scan_type.lower()
@@ -33,9 +160,9 @@ class Wappalyzer:
         self.workers = workers
         self.cookie = cookie
         self.timeout = timeout
-        self._driver_pool = None
-        self._driver_pool_size = 0
         self._closed = False
+        self._runner = None
+        self._full_backend = None
         self._lock = threading.RLock()
 
     def __enter__(self):
@@ -51,12 +178,18 @@ class Wappalyzer:
                 return
 
             self._closed = True
-            driver_pool = self._driver_pool
-            self._driver_pool = None
-            self._driver_pool_size = 0
+            runner = self._runner
+            backend = self._full_backend
+            self._runner = None
+            self._full_backend = None
 
-        if driver_pool:
-            driver_pool.cleanup()
+        if runner and backend:
+            try:
+                runner.run(backend.close())
+            finally:
+                runner.close()
+        elif runner:
+            runner.close()
 
     def analyze(self, url, cookie=None):
         result_url, technologies = self._analyze_url(url, cookie)
@@ -69,143 +202,89 @@ class Wappalyzer:
         if not urls:
             return {}
 
-        worker_count = self._worker_count(len(urls))
+        self._check_open()
 
         if self.scan_type == "full":
-            self._ensure_driver_pool(worker_count)
+            return self._full_runner().run(
+                self._full_backend.analyze_many(
+                    urls,
+                    cookie=self._effective_cookie(cookie),
+                    on_result=on_result,
+                    on_error=on_error,
+                )
+            )
 
-        url_queue = Queue()
-        result_queue = Queue()
-        stop_event = threading.Event()
-        results = {}
-
-        for url in urls:
-            url_queue.put(url)
-
-        def worker():
-            while not stop_event.is_set():
-                try:
-                    original_url = url_queue.get_nowait()
-                except Empty:
-                    break
-
-                result_url = original_url
-                technologies = {}
-                error = None
-
-                try:
-                    result_url, technologies = self._analyze_url(original_url, cookie)
-                except Exception as exc:
-                    error = exc
-                finally:
-                    result_queue.put((result_url, technologies or {}, error))
-                    url_queue.task_done()
-
-        threads = [
-            threading.Thread(target=worker)
-            for _ in range(worker_count)
-        ]
-        interrupted = False
-        processed = 0
-
-        for thread in threads:
-            thread.start()
-
-        try:
-            while processed < len(urls):
-                try:
-                    result_url, technologies, error = result_queue.get(timeout=0.1)
-                except Empty:
-                    if all(not thread.is_alive() for thread in threads):
-                        break
-
-                    continue
-
-                processed += 1
-                results[result_url] = technologies
-
-                if error and on_error:
-                    on_error(result_url, error)
-
-                if on_result:
-                    on_result(result_url, technologies)
-
-                result_queue.task_done()
-        except KeyboardInterrupt:
-            interrupted = True
-            stop_event.set()
-        finally:
-            for thread in threads:
-                thread.join()
-
-            while not result_queue.empty():
-                result_url, technologies, error = result_queue.get()
-                results[result_url] = technologies
-
-                if error and on_error:
-                    on_error(result_url, error)
-
-                if on_result:
-                    on_result(result_url, technologies)
-
-                result_queue.task_done()
-
-        if interrupted:
-            raise KeyboardInterrupt
-
-        return results
+        return self._analyze_many_http(
+            urls,
+            cookie=self._effective_cookie(cookie),
+            on_result=on_result,
+            on_error=on_error,
+        )
 
     def _check_open(self):
         if self._closed:
             raise RuntimeError("Wappalyzer scanner is closed")
 
-    def _worker_count(self, url_count):
-        if self.scan_type == "full":
-            return min(self.workers, self.MAX_BROWSER_WORKERS, url_count)
-
-        return min(self.workers, url_count)
-
-    def _browser_worker_count(self):
-        return min(self.workers, self.MAX_BROWSER_WORKERS)
-
-    def _ensure_driver_pool(self, size):
-        with self._lock:
-            self._check_open()
-
-            if self._driver_pool:
-                if size > self._driver_pool_size:
-                    self._driver_pool.grow_to(size)
-                    self._driver_pool_size = size
-
-                return self._driver_pool
-
-            self._driver_pool = DriverPool(size=size, timeout=self.timeout)
-            self._driver_pool_size = size
-
-            return self._driver_pool
-
     def _effective_cookie(self, cookie):
         return self.cookie if cookie is None else cookie
 
+    def _full_runner(self):
+        with self._lock:
+            self._check_open()
+
+            if not self._runner:
+                self._runner = _LoopRunner()
+                self._full_backend = _FullScanBackend(
+                    workers=self.workers,
+                    timeout=self.timeout,
+                )
+
+            return self._runner
+
     def _analyze_url(self, url, cookie=None):
         self._check_open()
+        cookie = self._effective_cookie(cookie)
 
         if self.scan_type == "full":
-            return self._analyze_full_url(url, self._effective_cookie(cookie))
+            return self._full_runner().run(
+                self._full_backend.analyze_url(url, cookie=cookie)
+            )
 
-        return url, http_scan(url, self.scan_type, self._effective_cookie(cookie))
+        return url, http_scan(url, self.scan_type, cookie)
 
-    def _analyze_full_url(self, url, cookie=None):
-        driver_pool = self._ensure_driver_pool(self._browser_worker_count())
+    def _analyze_many_http(self, urls, cookie=None, on_result=None, on_error=None):
+        worker_count = min(self.workers, len(urls))
+        results = {}
 
-        with driver_pool.get_driver() as driver:
-            if cookie:
-                for cookie_dict in cookie_to_cookies(cookie):
-                    driver.add_cookie(cookie_dict)
+        def scan(url):
+            return url, http_scan(url, self.scan_type, cookie)
 
-            result_url, detections = process_url(driver, url)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=worker_count) as executor:
+            future_to_url = {
+                executor.submit(scan, url): url
+                for url in urls
+            }
 
-        return result_url, merge_technologies(detections)
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                result_url = url
+                technologies = {}
+                error = None
+
+                try:
+                    result_url, technologies = future.result()
+                except Exception as exc:
+                    error = exc
+
+                results[result_url] = technologies
+
+                if error and on_error:
+                    on_error(result_url, error)
+
+                if on_result:
+                    on_result(result_url, technologies)
+
+        return results
 
 
 Scanner = Wappalyzer

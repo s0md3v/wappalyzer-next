@@ -10,7 +10,7 @@ with io.open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='wappalyzer',
-    version='2.0.0rc1',
+    version='2.0.0',
     description='Wappalyzer-based tech stack detection library',
     long_description=desc,
     long_description_content_type='text/markdown',
@@ -25,7 +25,7 @@ setup(
         'requests',
         'urllib3',
         'huepy',
-        'selenium',
+        'playwright',
         'tldextract',
         'beautifulsoup4',
         'dnspython'

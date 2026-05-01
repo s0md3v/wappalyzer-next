@@ -1,975 +1,708 @@
-import os
+import asyncio
 import json
-import re
+import os
+import shutil
 import sys
 import tempfile
-import time
-import threading
-import concurrent.futures
-from pathlib import Path
-from queue import Queue, Empty
-from contextlib import contextmanager
-
+import zipfile
+from contextlib import asynccontextmanager
 from http.cookies import SimpleCookie
+from pathlib import Path
 
-from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
-from selenium.webdriver.firefox.options import Options
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
+from playwright.async_api import async_playwright
 
 from wappalyzer.core.config import extension_path
 from wappalyzer.core.utils import create_result
 
 
-WAPPALYZER_EXTENSION_ID = "wappalyzer@crunchlabz.com"
 WAPPALYZER_POPUP_PATH = "html/popup.html"
-EXTENSION_UUIDS_PREF = re.compile(
-    r'user_pref\("extensions\.webextensions\.uuids",\s*("(?:\\.|[^"\\])*")\);'
-)
+USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+BLOCKED_RESOURCE_TYPES = {"image", "font", "media"}
 
-POPUP_HELPER_SCRIPT = """
-if (!window.__wappalyzerGetDetectionsForTarget) {
-  window.__wappalyzerGetDetectionsForTarget = async (targetUrl, hardMaxMs) => {
-    const parseUrl = (value) => {
-      try {
-        return new URL(value)
-      } catch (_) {
-        return null
-      }
+SELECT_TARGET_TAB_SCRIPT = """
+async (targetUrl) => {
+  const parseUrl = (value) => {
+    try {
+      return new URL(value)
+    } catch (_) {
+      return null
+    }
+  }
+
+  const queryTabs = () => {
+    if (typeof browser !== 'undefined' && browser.tabs?.query) {
+      return browser.tabs.query({})
     }
 
-    const queryTabs = () => {
-      if (typeof browser !== 'undefined' && browser.tabs?.query) {
-        return browser.tabs.query({})
-      }
+    return new Promise((resolve, reject) => {
+      chrome.tabs.query({}, (tabs) => {
+        const error = chrome.runtime.lastError
 
-      return new Promise((resolve, reject) => {
-        chrome.tabs.query({}, (tabs) => {
-          const error = chrome.runtime.lastError
+        if (error) {
+          reject(new Error(error.message))
 
-          if (error) {
-            reject(new Error(error.message))
-
-            return
-          }
-
-          resolve(tabs || [])
-        })
-      })
-    }
-
-    const sendMessage = (message) => {
-      if (typeof browser !== 'undefined' && browser.runtime?.sendMessage) {
-        return browser.runtime
-          .sendMessage(message)
-          .catch((error) => ({ __error: error.message || String(error) }))
-      }
-
-      return new Promise((resolve) => {
-        chrome.runtime.sendMessage(message, (response) => {
-          const error = chrome.runtime.lastError
-
-          if (error) {
-            resolve({ __error: error.message || String(error) })
-
-            return
-          }
-
-          resolve(response)
-        })
-      })
-    }
-
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-
-    const normaliseDetection = (detection) => {
-      const technology = detection.technology
-      const pattern = detection.pattern || {}
-      const confidence = Number(
-        pattern.confidence ?? detection.confidence
-      )
-      const technologyName =
-        technology && typeof technology === 'object'
-          ? technology.name
-          : technology || detection.name || detection.slug
-
-      return {
-        technology: technologyName,
-        pattern: {
-          regex: pattern.regex
-            ? String(pattern.regex.source || pattern.regex)
-            : '',
-          confidence: Number.isFinite(confidence) ? confidence : 100,
-        },
-        version: detection.version || '',
-        rootPath: detection.rootPath || '',
-        lastUrl: detection.lastUrl || '',
-      }
-    }
-
-    const selectTargetTab = async (target) => {
-      const tabs = await queryTabs()
-      const isTargetTab = (tab, exact) => {
-        if (!tab || !tab.url) {
-          return false
+          return
         }
 
-        const parsed = parseUrl(tab.url)
-
-        if (!parsed || !/^https?:$/.test(parsed.protocol)) {
-          return false
-        }
-
-        return exact
-          ? parsed.href === target.href
-          : parsed.hostname === target.hostname
-      }
-
-      return (
-        tabs.find((tab) => isTargetTab(tab, true)) ||
-        tabs.find((tab) => isTargetTab(tab, false)) ||
-        null
-      )
-    }
-
-    const getDetections = async (selectedTab) => {
-      const response = await sendMessage({
-        source: 'popup.js',
-        func: 'getDetectionsForTab',
-        args: [{ id: selectedTab.id, url: selectedTab.url }],
+        resolve(tabs || [])
       })
+    })
+  }
 
-      if (response?.__error) {
-        return response
-      }
+  const target = parseUrl(targetUrl)
 
-      return Array.isArray(response)
-        ? response
-        : Array.isArray(response?.detections)
-          ? response.detections
-          : []
+  if (!target || !/^https?:$/.test(target.protocol)) {
+    return null
+  }
+
+  const tabs = await queryTabs()
+  const isTargetTab = (tab, exact) => {
+    if (!tab || !tab.url) {
+      return false
     }
 
-    const detectionSignature = (detections) =>
-      detections
-        .map((detection) => {
-          const technology = detection?.technology
-          const technologyName =
-            technology && typeof technology === 'object'
-              ? technology.name
-              : technology || detection?.name || detection?.slug
+    const parsed = parseUrl(tab.url)
 
-          if (!technologyName) {
-            return ''
-          }
+    if (!parsed || !/^https?:$/.test(parsed.protocol)) {
+      return false
+    }
 
-          return [
-            technologyName,
-            detection.version || '',
-            detection.pattern?.confidence ?? detection.confidence ?? '',
-          ].join(':')
-        })
-        .filter(Boolean)
-        .sort()
-        .join('|')
+    return exact
+      ? parsed.href === target.href
+      : parsed.hostname === target.hostname
+  }
 
-    const pageActivityScript = `(() => {
-            const now = performance.now()
+  return (
+    tabs.find((tab) => isTargetTab(tab, true)) ||
+    tabs.find((tab) => isTargetTab(tab, false)) ||
+    null
+  )
+}
+"""
 
-            if (!window.__wappalyzerActivityStarted) {
-              window.__wappalyzerActivityStarted = true
-              window.__wappalyzerLastMutationAt = now
-              window.__wappalyzerMutationCount = 0
+GET_DETECTIONS_FOR_TAB_SCRIPT = """
+async (selectedTab) => {
+  const sendMessage = (message) => {
+    if (typeof browser !== 'undefined' && browser.runtime?.sendMessage) {
+      return browser.runtime
+        .sendMessage(message)
+        .catch((error) => ({ __error: error.message || String(error) }))
+    }
 
-              try {
-                new MutationObserver(() => {
-                  window.__wappalyzerLastMutationAt = performance.now()
-                  window.__wappalyzerMutationCount += 1
-                }).observe(document.documentElement, {
-                  childList: true,
-                  subtree: true,
-                  attributes: true,
-                })
-              } catch (_) {}
-            }
+    return new Promise((resolve) => {
+      chrome.runtime.sendMessage(message, (response) => {
+        const error = chrome.runtime.lastError
 
-            const relevantTypes = new Set(['script', 'fetch', 'xmlhttprequest', 'beacon', 'css'])
-            let relevantCount = 0
-            let lastRelevantAt = 0
+        if (error) {
+          resolve({ __error: error.message || String(error) })
 
-            try {
-              for (const entry of performance.getEntriesByType('resource')) {
-                if (!relevantTypes.has(entry.initiatorType)) {
-                  continue
-                }
-
-                relevantCount += 1
-                lastRelevantAt = Math.max(
-                  lastRelevantAt,
-                  entry.responseEnd || entry.startTime || 0
-                )
-              }
-            } catch (_) {}
-
-            return {
-              readyState: document.readyState,
-              relevantCount,
-              lastRelevantAge: lastRelevantAt ? now - lastRelevantAt : null,
-              lastMutationAge: window.__wappalyzerLastMutationAt
-                ? now - window.__wappalyzerLastMutationAt
-                : null,
-              mutationCount: window.__wappalyzerMutationCount || 0,
-            }
-          })()`
-    const pageActivity = async (selectedTab) => {
-      try {
-        let results = null
-
-        if (typeof browser !== 'undefined' && browser.tabs?.executeScript) {
-          results = await browser.tabs.executeScript(selectedTab.id, {
-            code: pageActivityScript,
-          })
-        } else if (typeof chrome !== 'undefined' && chrome.scripting?.executeScript) {
-          results = await chrome.scripting.executeScript({
-            target: { tabId: selectedTab.id },
-            func: () => {
-              const now = performance.now()
-
-              if (!window.__wappalyzerActivityStarted) {
-                window.__wappalyzerActivityStarted = true
-                window.__wappalyzerLastMutationAt = now
-                window.__wappalyzerMutationCount = 0
-
-                try {
-                  new MutationObserver(() => {
-                    window.__wappalyzerLastMutationAt = performance.now()
-                    window.__wappalyzerMutationCount += 1
-                  }).observe(document.documentElement, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                  })
-                } catch (_) {}
-              }
-
-              const relevantTypes = new Set(['script', 'fetch', 'xmlhttprequest', 'beacon', 'css'])
-              let relevantCount = 0
-              let lastRelevantAt = 0
-
-              try {
-                for (const entry of performance.getEntriesByType('resource')) {
-                  if (!relevantTypes.has(entry.initiatorType)) {
-                    continue
-                  }
-
-                  relevantCount += 1
-                  lastRelevantAt = Math.max(
-                    lastRelevantAt,
-                    entry.responseEnd || entry.startTime || 0
-                  )
-                }
-              } catch (_) {}
-
-              return {
-                readyState: document.readyState,
-                relevantCount,
-                lastRelevantAge: lastRelevantAt ? now - lastRelevantAt : null,
-                lastMutationAge: window.__wappalyzerLastMutationAt
-                  ? now - window.__wappalyzerLastMutationAt
-                  : null,
-                mutationCount: window.__wappalyzerMutationCount || 0,
-              }
-            },
-          })
-
-          results = results.map((item) => item.result)
+          return
         }
 
-        return Array.isArray(results) && results[0] ? results[0] : { unavailable: true }
-      } catch (_) {
-        return { unavailable: true }
-      }
+        resolve(response)
+      })
+    })
+  }
+
+  const normaliseDetection = (detection) => {
+    const technology = detection.technology
+    const pattern = detection.pattern || {}
+    const confidence = Number(
+      pattern.confidence ?? detection.confidence
+    )
+    const technologyName =
+      technology && typeof technology === 'object'
+        ? technology.name
+        : technology || detection.name || detection.slug
+
+    return {
+      technology: technologyName,
+      pattern: {
+        regex: pattern.regex
+          ? String(pattern.regex.source || pattern.regex)
+          : '',
+        confidence: Number.isFinite(confidence) ? confidence : 100,
+      },
+      version: detection.version || '',
+      rootPath: detection.rootPath || '',
+      lastUrl: detection.lastUrl || '',
     }
+  }
 
-    const target = parseUrl(targetUrl)
+  if (!selectedTab) {
+    return []
+  }
 
-    if (!target || !/^https?:$/.test(target.protocol)) {
-      return []
-    }
+  const response = await sendMessage({
+    source: 'popup.js',
+    func: 'getDetectionsForTab',
+    args: [{ id: selectedTab.id, url: selectedTab.url }],
+  })
 
-    const selectedTab = await selectTargetTab(target)
+  if (response?.__error) {
+    return response
+  }
 
-    if (!selectedTab) {
-      return []
-    }
+  const detections = Array.isArray(response)
+    ? response
+    : Array.isArray(response?.detections)
+      ? response.detections
+      : []
 
-    let detections = []
-    let lastSignature = ''
-    let lastActivitySignature = ''
-    let stablePolls = 0
-    const startedAt = Date.now()
-    const minWaitMs = 2000
-    const quietMs = 1000
-    const maxWaitMs = Math.max(1000, Number(hardMaxMs) || 6000)
+  return detections
+    .filter(
+      (detection) =>
+        detection?.technology || detection?.name || detection?.slug
+    )
+    .map(normaliseDetection)
+}
+"""
 
-    for (let attempt = 0; ; attempt += 1) {
-      const response = await getDetections(selectedTab)
+PAGE_ACTIVITY_SCRIPT = """
+() => {
+  const now = performance.now()
 
-      if (response?.__error) {
-        return { error: response.__error }
+  if (!window.__wappalyzerActivityStarted) {
+    window.__wappalyzerActivityStarted = true
+    window.__wappalyzerLastMutationAt = now
+    window.__wappalyzerMutationCount = 0
+
+    try {
+      new MutationObserver(() => {
+        window.__wappalyzerLastMutationAt = performance.now()
+        window.__wappalyzerMutationCount += 1
+      }).observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      })
+    } catch (_) {}
+  }
+
+  const relevantTypes = new Set(['script', 'fetch', 'xmlhttprequest', 'beacon', 'css'])
+  const isRelevantResource = (entry) =>
+    relevantTypes.has(entry.initiatorType) ||
+    (
+      entry.initiatorType === 'link' &&
+      /\\.css(?:[?#]|$)/i.test(entry.name || '')
+    )
+  let relevantCount = 0
+  let lastRelevantAt = 0
+
+  try {
+    for (const entry of performance.getEntriesByType('resource')) {
+      if (!isRelevantResource(entry)) {
+        continue
       }
 
-      detections = response
-      const signature = detectionSignature(detections)
-      const activity = await pageActivity(selectedTab)
-      const activitySignature = [
-        activity.readyState || '',
-        activity.relevantCount || 0,
-        activity.mutationCount || 0,
-      ].join(':')
-
-      if (
-        signature === lastSignature &&
-        activitySignature === lastActivitySignature
-      ) {
-        stablePolls += 1
-      } else {
-        stablePolls = 0
-        lastSignature = signature
-        lastActivitySignature = activitySignature
-      }
-
-      const elapsed = Date.now() - startedAt
-      const recentResource =
-        activity.lastRelevantAge !== null && activity.lastRelevantAge < quietMs
-      const recentMutation =
-        activity.lastMutationAge !== null && activity.lastMutationAge < quietMs
-      const activityUnavailable = activity.unavailable === true
-      const pageComplete = activityUnavailable || activity.readyState === 'complete'
-      const pageQuiet =
-        activityUnavailable || (pageComplete && !recentResource && !recentMutation)
-      const stableEnough = signature
-        ? stablePolls >= 2 && elapsed >= minWaitMs
-        : pageQuiet && stablePolls >= 2 && elapsed >= minWaitMs
-
-      if (stableEnough && pageQuiet) {
-        break
-      }
-
-      if (elapsed >= maxWaitMs) {
-        break
-      }
-
-      await sleep(500)
-    }
-
-    return detections
-      .filter(
-        (detection) =>
-          detection?.technology || detection?.name || detection?.slug
+      relevantCount += 1
+      lastRelevantAt = Math.max(
+        lastRelevantAt,
+        entry.responseEnd || entry.startTime || 0
       )
-      .map(normaliseDetection)
+    }
+  } catch (_) {}
+
+  return {
+    readyState: document.readyState,
+    relevantCount,
+    lastRelevantAge: lastRelevantAt ? now - lastRelevantAt : null,
+    lastMutationAge: window.__wappalyzerLastMutationAt
+      ? now - window.__wappalyzerLastMutationAt
+      : null,
+    mutationCount: window.__wappalyzerMutationCount || 0,
   }
 }
 """
 
-GET_DETECTIONS_SCRIPT = """
-const targetUrl = arguments[0]
-const hardMaxMs = arguments[1]
-const done = arguments[arguments.length - 1]
+STIMULATE_SCRIPT = """
+(maxDuration) => {
+  if (!window.__wappalyzerStimulusUntil || Date.now() > window.__wappalyzerStimulusUntil) {
+    window.__wappalyzerStimulusUntil = Date.now() + maxDuration + 100
 
-;(async () => {
-  if (!window.__wappalyzerGetDetectionsForTarget) {
-    done({ error: 'Wappalyzer popup helper is not installed' })
+    ;(async () => {
+      if (maxDuration <= 0) {
+        return
+      }
 
-    return
-  }
+      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+      const startedAt = Date.now()
+      const height = Math.max(
+        document.body?.scrollHeight || 0,
+        document.documentElement?.scrollHeight || 0
+      )
+      const width = Math.max(
+        document.documentElement?.clientWidth || window.innerWidth || 1,
+        1
+      )
+      const steps = [0.25, 0.5, 0.75, 1, 0]
 
-  done(await window.__wappalyzerGetDetectionsForTarget(targetUrl, hardMaxMs))
-})().catch((error) => done({ error: error.message || String(error) }))
-"""
+      for (const step of steps) {
+        const elapsed = Date.now() - startedAt
 
+        if (elapsed >= maxDuration) {
+          break
+        }
 
-def _extension_uuid_from_pref(text, addon_ids):
-    match = EXTENSION_UUIDS_PREF.search(text)
-
-    if not match:
-        return None
-
-    try:
-        uuids = json.loads(json.loads(match.group(1)))
-    except (TypeError, ValueError):
-        return None
-
-    for addon_id in addon_ids:
-        if addon_id and addon_id in uuids:
-            return uuids[addon_id]
-
-    return None
-
-
-def _get_extension_uuid(driver, timeout=5):
-    cached = getattr(driver, "_wappalyzer_extension_uuid", None)
-
-    if cached:
-        return cached
-
-    profile_dir = driver.capabilities.get("moz:profile")
-
-    if not profile_dir:
-        return None
-
-    addon_ids = (
-        getattr(driver, "_wappalyzer_extension_id", None),
-        WAPPALYZER_EXTENSION_ID,
-    )
-    prefs_path = Path(profile_dir) / "prefs.js"
-    deadline = time.time() + timeout
-
-    while time.time() < deadline:
-        if prefs_path.exists():
-            uuid = _extension_uuid_from_pref(
-                prefs_path.read_text(encoding="utf-8", errors="ignore"),
-                addon_ids,
-            )
-
-            if uuid:
-                driver._wappalyzer_extension_uuid = uuid
-
-                return uuid
-
-        time.sleep(0.1)
-
-    return None
-
-
-def _get_popup_url(driver):
-    extension_uuid = _get_extension_uuid(driver)
-
-    if not extension_uuid:
-        raise RuntimeError("Unable to resolve Wappalyzer Firefox extension UUID")
-
-    return f"moz-extension://{extension_uuid}/{WAPPALYZER_POPUP_PATH}"
-
-
-def _close_extra_tabs(driver, keep_handle, keep_handles=None):
-    keep_handles = set(keep_handles or ())
-    keep_handles.add(keep_handle)
-
-    for handle in list(driver.window_handles):
-        if handle in keep_handles:
-            continue
-
-        try:
-            driver.switch_to.window(handle)
-            driver.close()
-        except Exception:
-            pass
-
-    if keep_handle in driver.window_handles:
-        driver.switch_to.window(keep_handle)
-
-
-def _install_popup_helper(driver):
-    driver.execute_script(POPUP_HELPER_SCRIPT)
-    driver._wappalyzer_popup_helper_installed = True
-
-
-def _get_target_tab(driver):
-    popup_handle = getattr(driver, "_wappalyzer_popup_handle", None)
-
-    try:
-        current_handle = driver.current_window_handle
-    except Exception:
-        current_handle = None
-
-    if current_handle and current_handle != popup_handle:
-        return current_handle
-
-    for handle in driver.window_handles:
-        if handle != popup_handle:
-            driver.switch_to.window(handle)
-
-            return handle
-
-    driver.switch_to.new_window("tab")
-
-    return driver.current_window_handle
-
-
-def _ensure_popup_tab(driver):
-    popup_url = _get_popup_url(driver)
-    popup_handle = getattr(driver, "_wappalyzer_popup_handle", None)
-
-    if popup_handle in driver.window_handles:
-        driver.switch_to.window(popup_handle)
-
-        if driver.current_url != popup_url:
-            driver.get(popup_url)
-            driver._wappalyzer_popup_helper_installed = False
-
-        if not getattr(driver, "_wappalyzer_popup_helper_installed", False):
-            _install_popup_helper(driver)
-
-        return popup_handle
-
-    driver.switch_to.new_window("tab")
-    driver._wappalyzer_popup_handle = driver.current_window_handle
-    driver.get(popup_url)
-    driver._wappalyzer_popup_helper_installed = False
-    _install_popup_helper(driver)
-
-    return driver._wappalyzer_popup_handle
-
-
-def _get_detections_for_current_tab(driver, target_url):
-    main_tab = driver.current_window_handle
-    script_timeout = getattr(driver, "_wappalyzer_script_timeout", 15)
-    detection_timeout_ms = min(10000, max(1000, int((script_timeout - 1) * 1000)))
-
-    try:
-        _ensure_popup_tab(driver)
-
-        detections = driver.execute_async_script(
-            GET_DETECTIONS_SCRIPT,
-            target_url,
-            detection_timeout_ms,
+        window.scrollTo(0, Math.max(0, height * step - window.innerHeight))
+        document.dispatchEvent(
+          new MouseEvent('mousemove', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: Math.max(1, Math.floor(width * 0.5)),
+            clientY: Math.max(1, Math.floor(window.innerHeight * 0.5)),
+          })
         )
 
-        if isinstance(detections, dict):
-            if detections.get("error"):
-                print(f"Wappalyzer extension error: {detections['error']}", file=sys.stderr)
+        if (document.body?.focus) {
+          document.body.focus()
+        }
 
-            detections = detections.get("detections", [])
-
-        return detections if isinstance(detections, list) else []
-    finally:
-        if main_tab in driver.window_handles:
-            driver.switch_to.window(main_tab)
-
-
-def _stimulate_page(driver, max_duration_ms=1250):
-    if max_duration_ms <= 0:
-        return
-
-    script = """
-const maxDuration = arguments[0]
-
-if (!window.__wappalyzerStimulusUntil || Date.now() > window.__wappalyzerStimulusUntil) {
-  window.__wappalyzerStimulusUntil = Date.now() + maxDuration + 100
-
-  ;(async () => {
-  if (maxDuration <= 0) {
-    return
+        window.dispatchEvent(new Event('focus'))
+        await sleep(Math.min(250, Math.max(0, maxDuration - elapsed)))
+      }
+    })().catch(() => {})
   }
-
-  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
-  const startedAt = Date.now()
-  const height = Math.max(
-    document.body?.scrollHeight || 0,
-    document.documentElement?.scrollHeight || 0
-  )
-  const width = Math.max(
-    document.documentElement?.clientWidth || window.innerWidth || 1,
-    1
-  )
-  const steps = [0.25, 0.5, 0.75, 1, 0]
-
-  for (const step of steps) {
-    const elapsed = Date.now() - startedAt
-
-    if (elapsed >= maxDuration) {
-      break
-    }
-
-    window.scrollTo(0, Math.max(0, height * step - window.innerHeight))
-    document.dispatchEvent(
-      new MouseEvent('mousemove', {
-        view: window,
-        bubbles: true,
-        cancelable: true,
-        clientX: Math.max(1, Math.floor(width * 0.5)),
-        clientY: Math.max(1, Math.floor(window.innerHeight * 0.5)),
-      })
-    )
-
-    if (document.body?.focus) {
-      document.body.focus()
-    }
-
-    window.dispatchEvent(new Event('focus'))
-    await sleep(Math.min(250, Math.max(0, maxDuration - elapsed)))
-  }
-  })().catch(() => {})
 }
 """
 
-    try:
-        driver.execute_script(script, max_duration_ms)
-    except Exception:
-        pass
+
+def _validate_extension_dir(extension_dir):
+    required_files = (
+        "manifest.json",
+        "html/popup.html",
+        "js/background.js",
+        "js/index.js",
+        "js/content.js",
+    )
+
+    for relative_path in required_files:
+        if not (extension_dir / relative_path).is_file():
+            raise RuntimeError(f"Missing extension file: {relative_path}")
+
+    manifest = json.loads((extension_dir / "manifest.json").read_text(encoding="utf-8"))
+    errors = []
+
+    if manifest.get("manifest_version") != 3:
+        errors.append("manifest_version must be 3")
+
+    if manifest.get("action", {}).get("default_popup") != WAPPALYZER_POPUP_PATH:
+        errors.append(f"action.default_popup must be {WAPPALYZER_POPUP_PATH}")
+
+    if not manifest.get("background", {}).get("service_worker"):
+        errors.append("background.service_worker is required")
+
+    if "scripts" in manifest.get("background", {}):
+        errors.append("background.scripts must be absent for Chromium MV3")
+
+    if "browser_specific_settings" in manifest:
+        errors.append("browser_specific_settings must be absent")
+
+    if errors:
+        raise RuntimeError("Invalid bundled Chromium extension: " + "; ".join(errors))
 
 
-def _addon_temp_files():
-    try:
-        return {
-            path
-            for path in Path(tempfile.gettempdir()).glob("addon-*.xpi")
-            if path.is_file()
-        }
-    except Exception:
-        return set()
+def _prepare_extension_dir(extension_archive_path):
+    extension_dir = Path(tempfile.mkdtemp(prefix="wappalyzer-extension-"))
+
+    with zipfile.ZipFile(extension_archive_path) as archive:
+        archive.extractall(extension_dir)
+
+    _validate_extension_dir(extension_dir)
+
+    return extension_dir
 
 
-def _remove_files(paths):
-    for path in paths or ():
+def _detection_signature(detections):
+    parts = []
+
+    for detection in detections or ():
+        technology = detection.get("technology") or detection.get("name") or detection.get("slug")
+
+        if not technology:
+            continue
+
+        pattern = detection.get("pattern") or {}
+        confidence = pattern.get("confidence", detection.get("confidence", ""))
+        parts.append(f"{technology}:{detection.get('version', '')}:{confidence}")
+
+    return "|".join(sorted(parts))
+
+
+def _activity_signature(activity):
+    return ":".join(
+        str(activity.get(key, ""))
+        for key in ("readyState", "relevantCount", "mutationCount")
+    )
+
+
+def _page_quiet(activity, quiet_ms=1000):
+    if activity.get("unavailable"):
+        return True
+
+    recent_resource = (
+        activity.get("lastRelevantAge") is not None
+        and activity["lastRelevantAge"] < quiet_ms
+    )
+    recent_mutation = (
+        activity.get("lastMutationAge") is not None
+        and activity["lastMutationAge"] < quiet_ms
+    )
+
+    return (
+        activity.get("readyState") == "complete"
+        and not recent_resource
+        and not recent_mutation
+    )
+
+
+class BrowserDriver:
+    def __init__(self, context, page, user_data_dir, extension_id, timeout_ms):
+        self.context = context
+        self.page = page
+        self.user_data_dir = Path(user_data_dir)
+        self.extension_id = extension_id
+        self.timeout_ms = timeout_ms
+        self.popup = None
+        self.pending_cookies = []
+
+    def add_cookie(self, cookie):
+        self.pending_cookies.append(cookie)
+
+    async def apply_pending_cookies(self, url):
+        if not self.pending_cookies:
+            return
+
+        cookies = []
+
+        for cookie in self.pending_cookies:
+            cookies.append({
+                "name": cookie["name"],
+                "value": cookie["value"],
+                "url": url,
+            })
+
+        self.pending_cookies = []
+        await self.context.add_cookies(cookies)
+
+    async def reset(self):
         try:
-            path.unlink()
-        except FileNotFoundError:
-            pass
+            await self.context.clear_cookies()
         except Exception:
             pass
 
-
-def _quit_driver(driver, timeout=3):
-    temp_addons = getattr(driver, "_wappalyzer_temp_addons", ())
-    done = threading.Event()
-
-    def quit_driver():
         try:
-            driver.quit()
+            await self.page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }")
         except Exception:
             pass
-        finally:
-            done.set()
 
-    thread = threading.Thread(target=quit_driver, daemon=True)
-    thread.start()
-    thread.join(timeout)
+    async def close(self):
+        try:
+            await self.context.close()
+        except Exception:
+            pass
 
-    if done.is_set():
-        _remove_files(temp_addons)
-
-        return
-
-    service = getattr(driver, "service", None)
-    process = getattr(service, "process", None)
-
-    if not process:
-        return
-
-    try:
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=2)
-            except Exception:
-                if process.poll() is None:
-                    process.kill()
-    except Exception:
-        pass
-
-    _remove_files(temp_addons)
+        shutil.rmtree(self.user_data_dir, ignore_errors=True)
 
 
 class DriverPool:
     def __init__(self, size=3, max_retries=3, timeout=30):
-        self.pool = Queue(maxsize=size)
-        self.lock = threading.Lock()
+        self.size = size
         self.max_retries = max_retries
         self.timeout = timeout
+        self.queue = asyncio.Queue()
         self.closed = False
+        self.playwright = None
+        self.extension_dir = None
+        self.drivers = []
+
+    async def start(self):
+        self.playwright = await async_playwright().start()
+        self.extension_dir = _prepare_extension_dir(os.path.abspath(extension_path))
+
+        for _ in range(self.size):
+            driver = await self._create_driver()
+
+            if driver:
+                self.drivers.append(driver)
+                await self.queue.put(driver)
+
+        if self.queue.empty():
+            raise RuntimeError("Failed to initialize Chromium browser contexts")
+
+    async def grow_to(self, size):
+        if self.closed or size <= self.size:
+            return
+
+        additional = size - self.size
         self.size = size
-        self.xpi_path = os.path.abspath(extension_path)
-        self.addon_lock = threading.Lock()
-        
-        # Initialize the pool with drivers
-        if size <= 1:
-            try:
-                driver = self._create_driver()
-                if driver:
-                    self.pool.put(driver)
-            except Exception as e:
-                    print(f"Failed to initialize driver: {str(e)}", file=sys.stderr)
-        else:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=size) as executor:
-                futures = [executor.submit(self._create_driver) for _ in range(size)]
-
-                for future in concurrent.futures.as_completed(futures):
-                    try:
-                        driver = future.result()
-                        if driver:
-                            with self.lock:
-                                if self.closed:
-                                    should_quit = True
-                                else:
-                                    should_quit = False
-                                    self.pool.put(driver)
-
-                            if should_quit:
-                                _quit_driver(driver)
-                    except Exception as e:
-                        print(f"Failed to initialize driver: {str(e)}", file=sys.stderr)
-
-    def grow_to(self, size):
-        with self.lock:
-            if self.closed or size <= self.size:
-                return
-
-            additional = size - self.size
-            self.size = size
-
-            with self.pool.mutex:
-                self.pool.maxsize = size
-
-        def create_driver():
-            driver = self._create_driver()
-
-            if not driver:
-                return
-
-            should_quit = False
-            with self.lock:
-                if self.closed:
-                    should_quit = True
-                else:
-                    self.pool.put(driver)
-
-            if should_quit:
-                _quit_driver(driver)
-
-        threads = []
-
         for _ in range(additional):
-            thread = threading.Thread(target=create_driver)
-            thread.start()
-            threads.append(thread)
+            driver = await self._create_driver()
 
-        for thread in threads:
-            thread.join()
+            if driver:
+                self.drivers.append(driver)
+                await self.queue.put(driver)
 
-    def _create_driver(self):
-        """Create a new Firefox driver with retry logic"""
+    async def _create_driver(self):
         for attempt in range(self.max_retries):
-            driver = None
+            user_data_dir = tempfile.mkdtemp(prefix="wappalyzer-chromium-")
+            context = None
+
             try:
-                options = Options()
-                # Keep existing options from init_firefox_driver
-                options.set_preference("accessibility.force_disabled", 1)
-                options.set_preference("permissions.default.image", 2)
-                options.set_preference("permissions.default.desktop-notification", 2)
-                options.set_preference("permissions.default.geo", 2)
-                options.set_preference("browser.shell.checkDefaultBrowser", False)
-                options.set_preference("browser.startup.homepage_override.mstone", "ignore")
-                options.set_preference("startup.homepage_welcome_url", "about:blank")
-                options.set_preference("startup.homepage_welcome_url.additional", "")
-                options.set_preference("dom.ipc.plugins.enabled.libflashplayer.so", False)
-                options.set_preference("gfx.downloadable_fonts.enabled", False)
-                options.set_preference("media.video_stats.enabled", False)
-                options.set_preference("media.autoplay.default", 5)
-                options.set_preference("media.autoplay.blocking_policy", 2)
-                options.set_preference("media.preload.default", 0)
-                options.set_preference("browser.safebrowsing.malware.enabled", False)
-                options.set_preference("browser.safebrowsing.phishing.enabled", False)
-                options.set_preference("browser.safebrowsing.downloads.enabled", False)
-                options.set_preference("datareporting.healthreport.uploadEnabled", False)
-                options.set_preference("datareporting.policy.dataSubmissionEnabled", False)
-                options.set_preference("toolkit.telemetry.enabled", False)
-                options.set_preference("dom.webdriver.enabled", False)
-                options.set_preference('useAutomationExtension', False)
-                options.set_preference("general.useragent.override", 
-                    "Mozilla/5.0 (X11; Linux x86_64; rv:131.0) Gecko/20100101 Firefox/131.0")
-                options.add_argument("--headless")
-                options.add_argument("--width=1366")
-                options.add_argument("--height=900")
+                context = await self.playwright.chromium.launch_persistent_context(
+                    user_data_dir,
+                    channel="chromium",
+                    headless=True,
+                    viewport={"width": 1366, "height": 900},
+                    user_agent=USER_AGENT,
+                    timezone_id="UTC",
+                    reduced_motion="reduce",
+                    ignore_https_errors=True,
+                    args=[
+                        f"--disable-extensions-except={self.extension_dir}",
+                        f"--load-extension={self.extension_dir}",
+                        "--disable-background-networking",
+                        "--disable-breakpad",
+                        "--disable-client-side-phishing-detection",
+                        "--disable-component-update",
+                        "--disable-crash-reporter",
+                        "--disable-default-apps",
+                        "--disable-dev-shm-usage",
+                        "--disable-domain-reliability",
+                        "--disable-features=Translate,MediaRouter",
+                        "--disable-notifications",
+                        "--disable-speech-api",
+                        "--disable-sync",
+                        "--metrics-recording-only",
+                        "--mute-audio",
+                        "--no-first-run",
+                        "--no-default-browser-check",
+                    ],
+                )
 
-                driver = webdriver.Firefox(options=options)
-                with self.addon_lock:
-                    before_addons = _addon_temp_files()
-                    try:
-                        driver._wappalyzer_extension_id = driver.install_addon(
-                            self.xpi_path,
-                            temporary=True,
-                        )
-                    finally:
-                        created_addons = _addon_temp_files() - before_addons
-                        existing_addons = getattr(driver, "_wappalyzer_temp_addons", ())
-                        driver._wappalyzer_temp_addons = tuple(existing_addons) + tuple(created_addons)
-                driver.set_page_load_timeout(self.timeout)
-                script_timeout = max(5, min(self.timeout, 15))
-                driver.set_script_timeout(script_timeout)
-                driver._wappalyzer_script_timeout = script_timeout
-                _get_extension_uuid(driver)
-                return driver
+                timeout_ms = self.timeout * 1000
+                context.set_default_timeout(timeout_ms)
+                context.set_default_navigation_timeout(timeout_ms)
+
+                async def route_handler(route):
+                    if route.request.resource_type in BLOCKED_RESOURCE_TYPES:
+                        await route.abort()
+                    else:
+                        await route.continue_()
+
+                await context.route("**/*", route_handler)
+
+                extension_id = await self._get_extension_id(context)
+                pages = context.pages
+                page = pages[0] if pages else await context.new_page()
+
+                return BrowserDriver(context, page, user_data_dir, extension_id, timeout_ms)
             except Exception as e:
-                if driver:
-                    _quit_driver(driver)
-                print(f"Attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
-                time.sleep(1)
-                
-        return None
-
-    @contextmanager
-    def get_driver(self):
-        """Get a driver from the pool with proper resource management"""
-        driver = None
-        try:
-            driver = self.pool.get(timeout=30)  # Wait up to 30 seconds for a driver
-            yield driver
-        except Exception as e:
-            print(f"Error with driver: {str(e)}", file=sys.stderr)
-            if driver:
-                try:
-                    _quit_driver(driver)  # Ensure driver is quit on error
-                except:
-                    pass
-            raise
-        finally:
-            if driver:
-                reusable = True
-                try:
-                    # Reset driver state
-                    driver.delete_all_cookies()
-                    driver.execute_script("window.localStorage.clear();")
-                except Exception as e:
-                    reusable = False
-
-                if reusable:
-                    should_quit = False
-                    with self.lock:
-                        if self.closed:
-                            should_quit = True
-                        else:
-                            self.pool.put(driver)
-
-                    if should_quit:
-                        try:
-                            _quit_driver(driver)
-                        except:
-                            pass
-                else:
+                if context:
                     try:
-                        _quit_driver(driver)  # Ensure driver is quit if we can't reuse it
-                    except:
+                        await context.close()
+                    except Exception:
                         pass
 
-                    with self.lock:
-                        should_replace = not self.closed
+                shutil.rmtree(user_data_dir, ignore_errors=True)
+                print(f"Attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
+                await asyncio.sleep(1)
 
-                    if should_replace:
-                        # Try to create a new driver to replace the failed one
-                        new_driver = self._create_driver()
-                        if new_driver:
-                            should_quit = False
-                            with self.lock:
-                                if self.closed:
-                                    should_quit = True
-                                else:
-                                    self.pool.put(new_driver)
+        return None
 
-                            if should_quit:
-                                try:
-                                    _quit_driver(new_driver)
-                                except:
-                                    pass
+    async def _get_extension_id(self, context):
+        service_workers = context.service_workers
+        service_worker = service_workers[0] if service_workers else None
 
-    def cleanup(self):
-        """Cleanup all drivers in the pool"""
-        with self.lock:
-            if self.closed:
+        if service_worker is None:
+            service_worker = await context.wait_for_event("serviceworker", timeout=10000)
+
+        return service_worker.url.split("/")[2]
+
+    @asynccontextmanager
+    async def get_driver(self):
+        driver = await self.queue.get()
+        reusable = True
+
+        try:
+            yield driver
+        except Exception:
+            reusable = False
+            await driver.close()
+            raise
+        finally:
+            if not reusable:
                 return
 
-            self.closed = True
-        drivers = []
+            if self.closed:
+                await driver.close()
+            else:
+                await driver.reset()
+                await self.queue.put(driver)
 
-        while True:
-            try:
-                driver = self.pool.get_nowait()
-                drivers.append(driver)
-            except Empty:  # Use Empty directly
-                break
-            except Exception as e:
-                print(f"Error during cleanup: {str(e)}", file=sys.stderr)
+    async def cleanup(self):
+        if self.closed:
+            return
 
-        def quit_driver(driver):
-            try:
-                _quit_driver(driver)
-            except:
-                pass
-
-        threads = []
+        self.closed = True
+        drivers = list(self.drivers)
+        self.drivers = []
 
         for driver in drivers:
-            thread = threading.Thread(target=quit_driver, args=(driver,))
-            thread.start()
-            threads.append(thread)
+            await driver.close()
 
-        for thread in threads:
-            thread.join()
-
-    def __del__(self):
-        """Destructor to ensure cleanup"""
-        self.cleanup()
-
-def cookie_to_cookies(cookie):
-    cookie_dict = SimpleCookie().load(cookie)
-    cookies = []
-    if cookie_dict:
-        for key, value in cookie_dict.items():
-            cookies.append({
-                'name': key,
-                'value': value
-            })
-    return cookies
-
-def process_url(driver, url):
-    main_tab = _get_target_tab(driver)
-
-    try:
-        popup_handle = getattr(driver, "_wappalyzer_popup_handle", None)
-        keep_handles = {popup_handle} if popup_handle in driver.window_handles else set()
-        _close_extra_tabs(driver, main_tab, keep_handles)
-        
-        try:
-            driver.get(url)
-        except TimeoutException:
+        if self.playwright:
             try:
-                driver.execute_script("window.stop();")
+                await self.playwright.stop()
             except Exception:
                 pass
 
-        _stimulate_page(driver)
+        if self.extension_dir:
+            shutil.rmtree(self.extension_dir, ignore_errors=True)
 
-        return url, _get_detections_for_current_tab(driver, driver.current_url)
-        
-    except Exception as e:
+
+async def _ensure_popup(driver):
+    popup_url = f"chrome-extension://{driver.extension_id}/{WAPPALYZER_POPUP_PATH}"
+
+    if driver.popup and not driver.popup.is_closed():
+        if driver.popup.url != popup_url:
+            await driver.popup.goto(popup_url, wait_until="domcontentloaded")
+
+        return driver.popup
+
+    driver.popup = await driver.context.new_page()
+    await driver.popup.goto(popup_url, wait_until="domcontentloaded")
+
+    return driver.popup
+
+
+async def _stimulate_page(page, max_duration_ms=1250):
+    try:
+        await page.evaluate(STIMULATE_SCRIPT, max_duration_ms)
+    except Exception:
+        pass
+
+
+async def _page_activity(page):
+    try:
+        return await page.evaluate(PAGE_ACTIVITY_SCRIPT)
+    except Exception:
+        return {"unavailable": True}
+
+
+async def _get_detections(driver, target_url):
+    popup = await _ensure_popup(driver)
+    selected_tab = await popup.evaluate(SELECT_TARGET_TAB_SCRIPT, target_url)
+
+    if not selected_tab:
+        return []
+
+    detections = []
+    last_signature = None
+    last_activity_signature = None
+    stable_polls = 0
+    started_at = asyncio.get_running_loop().time()
+    min_wait = 2.0
+    hard_max = min(10.0, max(1.0, driver.timeout_ms / 1000 - 1))
+
+    while True:
+        response = await popup.evaluate(GET_DETECTIONS_FOR_TAB_SCRIPT, selected_tab)
+
+        if isinstance(response, dict) and response.get("__error"):
+            print(f"Wappalyzer extension error: {response['__error']}", file=sys.stderr)
+            response = []
+
+        detections = response if isinstance(response, list) else []
+        signature = _detection_signature(detections)
+        activity = await _page_activity(driver.page)
+        activity_signature = _activity_signature(activity)
+
+        if (
+            signature == last_signature
+            and activity_signature == last_activity_signature
+        ):
+            stable_polls += 1
+        else:
+            stable_polls = 0
+            last_signature = signature
+            last_activity_signature = activity_signature
+
+        elapsed = asyncio.get_running_loop().time() - started_at
+        page_quiet = _page_quiet(activity)
+        stable_enough = stable_polls >= 2 and elapsed >= min_wait
+
+        if stable_enough and page_quiet:
+            break
+
+        if elapsed >= hard_max:
+            break
+
+        await asyncio.sleep(0.5)
+
+    return detections
+
+
+async def process_url(driver, url):
+    try:
+        await driver.apply_pending_cookies(url)
+
+        try:
+            await driver.page.goto(
+                url,
+                wait_until="load",
+                timeout=driver.timeout_ms,
+            )
+        except PlaywrightTimeoutError:
+            try:
+                await driver.page.evaluate("() => window.stop()")
+            except Exception:
+                pass
+
+        await _stimulate_page(driver.page)
+
+        return url, await _get_detections(driver, driver.page.url)
+    except Exception:
         print(f"Error processing: {url}", file=sys.stderr)
         return url, []
-    finally:
-        popup_handle = getattr(driver, "_wappalyzer_popup_handle", None)
-        keep_handles = {popup_handle} if popup_handle in driver.window_handles else set()
-        _close_extra_tabs(driver, main_tab, keep_handles)
+
+
+def cookie_to_cookies(cookie):
+    cookie_dict = SimpleCookie()
+    cookie_dict.load(cookie)
+    cookies = []
+
+    for key, value in cookie_dict.items():
+        cookies.append({
+            "name": key,
+            "value": value.value,
+        })
+
+    return cookies
+
 
 def merge_technologies(detections):
     """wappalyzer produces duplicate results, we are merging them"""
     tech_map = {}
-    
+
     for detection in detections:
-        tech_name = detection['technology']
-        
+        tech_name = detection["technology"]
+
         if tech_name not in tech_map:
             tech_map[tech_name] = {
-                'version': detection.get('version', ''),
-                'confidence': detection['pattern']['confidence']
+                "version": detection.get("version", ""),
+                "confidence": detection["pattern"]["confidence"],
             }
         else:
             existing = tech_map[tech_name]
-            # keep the non-empty version
-            if not existing['version'] and detection.get('version'):
-                existing['version'] = detection['version']
-            # add confidences, capping at 100
-            existing['confidence'] = min(
-                existing['confidence'] + detection['pattern']['confidence'],
-                100
+
+            if not existing["version"] and detection.get("version"):
+                existing["version"] = detection["version"]
+
+            existing["confidence"] = min(
+                existing["confidence"] + detection["pattern"]["confidence"],
+                100,
             )
-    
+
     return create_result(tech_map)

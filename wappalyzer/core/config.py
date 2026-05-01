@@ -21,4 +21,4 @@ groups_db = {}
 with open(data_dir + '/groups.json', 'r') as f:
     groups_db = json.load(f)
 
-extension_path = data_dir + '/wappalyzer.xpi'
+extension_path = data_dir + '/wappalyzer-extension.zip'

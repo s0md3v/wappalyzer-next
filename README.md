@@ -1,6 +1,6 @@
 # Wappalyzer Next
 
-This project is a command line tool and python library that uses [Wappalyzer](https://www.wappalyzer.com/) extension (and its fingerprints) to detect technologies. Other projects that emerged after the discontinuation of the official open-source project are using outdated fingerprints and lack accuracy when used on dynamic web apps. This project bypasses those limitations.
+This project is a command line tool and python library that uses the [Wappalyzer](https://www.wappalyzer.com/) browser extension and its fingerprints to detect technologies. Other projects that emerged after the discontinuation of the official open-source project are using outdated fingerprints and lack accuracy on dynamic web apps. This project bypasses those limitations by running the extension in Chromium through Playwright.
 
 ![demo](https://github.com/user-attachments/assets/7a51b034-c9a7-44e6-aa80-2f8a23311e72)
 
@@ -11,45 +11,32 @@ This project is a command line tool and python library that uses [Wappalyzer](ht
 
 ## Installation
 
-Before installing wappalyzer, you will need to install [Firefox](https://www.mozilla.org/en-US/firefox/windows/) and [geckodriver](https://github.com/mozilla/geckodriver/releases). Below are detailed steps for setting up geckodriver but you may use google/youtube for help.
-<details>
-<summary>Setting up geckodriver</summary>
+After installing the Python package, install Playwright's Chromium browser:
 
-### Step 1: Download GeckoDriver
-1. Visit the official GeckoDriver releases page on GitHub:  
-   [https://github.com/mozilla/geckodriver/releases](https://github.com/mozilla/geckodriver/releases)
-2. Download the version compatible with your system:
-   - For Windows: `geckodriver-vX.XX.X-win64.zip`
-   - For macOS: `geckodriver-vX.XX.X-macos.tar.gz`
-   - For Linux: `geckodriver-vX.XX.X-linux64.tar.gz`
-3. Extract the downloaded file to a folder of your choice.
+```bash
+python -m playwright install chromium
+```
 
-### Step 2: Add GeckoDriver to the System Path
-To ensure Selenium can locate the GeckoDriver executable:
-- **Windows**:
-  1. Move the `geckodriver.exe` to a directory (e.g., `C:\WebDrivers\`).
-  2. Add this directory to the system's PATH:
-     - Open **Environment Variables**.
-     - Under **System Variables**, find and select the `Path` variable, then click **Edit**.
-     - Click **New** and enter the directory path where `geckodriver.exe` is stored.
-     - Click **OK** to save.
-- **macOS/Linux**:
-  1. Move the `geckodriver` file to `/usr/local/bin/` or another directory in your PATH.
-  2. Use the following command in the terminal:
-     ```bash
-     sudo mv geckodriver /usr/local/bin/
-     ```
-     Ensure `/usr/local/bin/` is in your PATH.
-</details>
+In minimal Linux containers, install Chromium's system dependencies as well:
+
+```bash
+python -m playwright install-deps chromium
+```
 
 
 #### Install as a command-line tool
 ```bash
 pipx install wappalyzer
+pipx run --spec playwright playwright install chromium
 ```
 
 #### Install as a library
 To use it as a library, install it with `pip` inside an isolated container e.g. `venv` or `docker`. You may also `--break-system-packages` to do a 'regular' install but it is not recommended.
+
+```bash
+pip install wappalyzer
+python -m playwright install chromium
+```
 
 #### Install with docker
 <details><summary>Steps</summary>
@@ -62,7 +49,7 @@ cd wappalyzer-next
 
 2. Build and run with Docker Compose:
 ```bash
-docker compose up -d
+docker compose build
 ```
 
 3. To scan URLs using the Docker container:
@@ -71,9 +58,9 @@ docker compose up -d
 ```bash
 docker compose run --rm wappalyzer -i https://example.com
 ```
-- Scan Multiple URLs from a file:
+- Scan multiple URLs from a file:
 ```bash
-docker compose run --rm wappalyzer -i https://example.com -oJ output.json
+docker compose run --rm wappalyzer -i urls.txt -w 3 -oJ output.json
 ```
 </details>
 
@@ -81,11 +68,13 @@ docker compose run --rm wappalyzer -i https://example.com -oJ output.json
 Some common usage examples are given below, refer to list of all options for more information.
 
 - Scan a single URL: `wappalyzer -i https://example.com`
-- Scan multiple URLs from a file: `wappalyzer -i urls.txt -w 10`
+- Scan multiple URLs from a file: `wappalyzer -i urls.txt -w 3`
 - Set page-load timeout for full scans: `wappalyzer -i urls.txt -t 15`
 - Scan with authentication: `wappalyzer -i https://example.com -c "sessionid=abc123; token=xyz789"`
 - Export results to JSON: `wappalyzer -i https://example.com -oJ results.json`
 - Export JSON to stdout: `wappalyzer -i https://example.com -oJ`
+
+When an output flag is used without a file, the report is written to stdout. Status lines, banner text, and errors are written to stderr.
 
 #### Options
 
@@ -128,7 +117,7 @@ for url, technologies in results.items():
         print(f"  {name}{version}")
 ```
 
-The same scanner can also scan one URL at a time without reopening Firefox:
+The same scanner can also scan one URL at a time without reopening Chromium:
 
 ```python
 from wappalyzer import Wappalyzer
@@ -151,7 +140,7 @@ results = analyze(
 )
 ```
 
-Do not call the top-level `analyze()` function in a loop for large jobs. Use `Wappalyzer.analyze_many()` or `Wappalyzer.analyze()` on a reused scanner so Firefox and the Wappalyzer extension are not reloaded for every URL.
+Do not call the top-level `analyze()` function in a loop for large jobs. Use `Wappalyzer.analyze_many()` or `Wappalyzer.analyze()` on a reused scanner so Chromium and the Wappalyzer extension are not reloaded for every URL.
 
 #### analyze() Function Parameters
 
@@ -171,18 +160,27 @@ Returns a dictionary with the URL as key and detected technologies as value:
 ```json
 {
   "https://github.com": {
-    "Amazon S3": {"version": "", "confidence": 100, "categories": ["CDN"], "groups": ["Servers"]},
-    "lit-html": {"version": "1.1.2", "confidence": 100, "categories": ["JavaScript libraries"], "groups": ["Web development"]},
-    "React Router": {"version": "6", "confidence": 100, "categories": ["JavaScript frameworks"], "groups": ["Web development"]},
-  "https://google.com" : {},
-  "https://example.com" : {},
-}}
+    "Amazon S3": {
+      "version": "",
+      "confidence": 100,
+      "categories": ["CDN"],
+      "groups": ["Servers"]
+    },
+    "React Router": {
+      "version": "6",
+      "confidence": 100,
+      "categories": ["JavaScript frameworks"],
+      "groups": ["Web development"]
+    }
+  },
+  "https://example.com": {}
+}
 ```
 
 ### FAQ
 
-#### Why use Firefox instead of Chrome?
-Firefox extensions are .xpi files which are essentially zip files. This makes it easier to extract data and slightly modify the extension to make this tool work.
+#### Why Chromium and Playwright?
+The full scanner runs the Wappalyzer extension in Chromium through Playwright. Chromium extension support in Playwright is direct and does not require geckodriver or Selenium.
 
 #### What is the difference between 'fast', 'balanced', and 'full' scan types?
 - **fast**: Sends a single HTTP request to the URL. Doesn't use the extension.
