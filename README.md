@@ -109,23 +109,49 @@ The python library is available on pypi as `wappalyzer` and can be imported with
 
 #### Using the Library
 
-The main function you'll interact with is `analyze()`:
+Use `Wappalyzer` when scanning more than one URL. The browser is started once, reused, and closed when the `with` block exits.
+
+```python
+from wappalyzer import Wappalyzer
+
+with Wappalyzer(workers=3, timeout=30) as scanner:
+    results = scanner.analyze_many([
+        'https://example.com',
+        'https://github.com',
+        'https://python.org',
+    ])
+
+for url, technologies in results.items():
+    print(url)
+    for name, data in technologies.items():
+        version = f" {data['version']}" if data['version'] else ""
+        print(f"  {name}{version}")
+```
+
+The same scanner can also scan one URL at a time without reopening Firefox:
+
+```python
+from wappalyzer import Wappalyzer
+
+with Wappalyzer(workers=3, timeout=30) as scanner:
+    github = scanner.analyze('https://github.com')
+    python = scanner.analyze('https://python.org')
+```
+
+For a single URL, `analyze()` is shorter. It creates its own scanner, runs one scan, and closes it.
 
 ```python
 from wappalyzer import analyze
 
-# Basic usage
-results = analyze('https://example.com')
-
-# With options
 results = analyze(
     url='https://example.com',
     scan_type='full',  # 'fast', 'balanced', or 'full'
-    workers=3,
     cookie='sessionid=abc123',
     timeout=30
 )
 ```
+
+Do not call the top-level `analyze()` function in a loop for large jobs. Use `Wappalyzer.analyze_many()` or `Wappalyzer.analyze()` on a reused scanner so Firefox and the Wappalyzer extension are not reloaded for every URL.
 
 #### analyze() Function Parameters
 
@@ -134,7 +160,7 @@ results = analyze(
   - `'fast'`: Quick HTTP-based scan
   - `'balanced'`: HTTP-based scan with more requests
   - `'full'`: Complete scan including JavaScript execution (default)
-- `workers` (int, optional): Number of concurrent workers for parallel processing (default: 3)
+- `workers` (int, optional): Number of browser workers to create for full scans (default: 1)
 - `cookie` (str, optional): Cookie header string for authenticated scans
 - `timeout` (int, optional): Maximum seconds to wait for a page load in full scans (default: 30)
 

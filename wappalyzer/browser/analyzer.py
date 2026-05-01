@@ -525,6 +525,7 @@ class DriverPool:
         self.max_retries = max_retries
         self.timeout = timeout
         self.closed = False
+        self.size = size
         self.xpi_path = os.path.abspath(extension_path)
         self.addon_lock = threading.Lock()
         
@@ -555,6 +556,43 @@ class DriverPool:
                                 _quit_driver(driver)
                     except Exception as e:
                         print(f"Failed to initialize driver: {str(e)}", file=sys.stderr)
+
+    def grow_to(self, size):
+        with self.lock:
+            if self.closed or size <= self.size:
+                return
+
+            additional = size - self.size
+            self.size = size
+
+            with self.pool.mutex:
+                self.pool.maxsize = size
+
+        def create_driver():
+            driver = self._create_driver()
+
+            if not driver:
+                return
+
+            should_quit = False
+            with self.lock:
+                if self.closed:
+                    should_quit = True
+                else:
+                    self.pool.put(driver)
+
+            if should_quit:
+                _quit_driver(driver)
+
+        threads = []
+
+        for _ in range(additional):
+            thread = threading.Thread(target=create_driver)
+            thread.start()
+            threads.append(thread)
+
+        for thread in threads:
+            thread.join()
 
     def _create_driver(self):
         """Create a new Firefox driver with retry logic"""
@@ -601,8 +639,8 @@ class DriverPool:
                         )
                     finally:
                         created_addons = _addon_temp_files() - before_addons
-
-                    driver._wappalyzer_temp_addons = tuple(created_addons)
+                        existing_addons = getattr(driver, "_wappalyzer_temp_addons", ())
+                        driver._wappalyzer_temp_addons = tuple(existing_addons) + tuple(created_addons)
                 driver.set_page_load_timeout(self.timeout)
                 driver.set_script_timeout(max(5, min(self.timeout, 15)))
                 _get_extension_uuid(driver)

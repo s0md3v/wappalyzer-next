@@ -1,1 +1,1 @@
-from .__main__ import analyze
+from .scanner import Scanner, Wappalyzer, analyze
