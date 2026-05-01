@@ -2,6 +2,7 @@ import os
 import json
 import re
 import sys
+import tempfile
 import time
 import threading
 import concurrent.futures
@@ -455,7 +456,29 @@ if (!window.__wappalyzerStimulusUntil || Date.now() > window.__wappalyzerStimulu
         pass
 
 
+def _addon_temp_files():
+    try:
+        return {
+            path
+            for path in Path(tempfile.gettempdir()).glob("addon-*.xpi")
+            if path.is_file()
+        }
+    except Exception:
+        return set()
+
+
+def _remove_files(paths):
+    for path in paths or ():
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            pass
+        except Exception:
+            pass
+
+
 def _quit_driver(driver, timeout=3):
+    temp_addons = getattr(driver, "_wappalyzer_temp_addons", ())
     done = threading.Event()
 
     def quit_driver():
@@ -471,6 +494,8 @@ def _quit_driver(driver, timeout=3):
     thread.join(timeout)
 
     if done.is_set():
+        _remove_files(temp_addons)
+
         return
 
     service = getattr(driver, "service", None)
@@ -490,6 +515,8 @@ def _quit_driver(driver, timeout=3):
     except Exception:
         pass
 
+    _remove_files(temp_addons)
+
 
 class DriverPool:
     def __init__(self, size=3, max_retries=3, timeout=30):
@@ -499,6 +526,7 @@ class DriverPool:
         self.timeout = timeout
         self.closed = False
         self.xpi_path = os.path.abspath(extension_path)
+        self.addon_lock = threading.Lock()
         
         # Initialize the pool with drivers
         if size <= 1:
@@ -531,6 +559,7 @@ class DriverPool:
     def _create_driver(self):
         """Create a new Firefox driver with retry logic"""
         for attempt in range(self.max_retries):
+            driver = None
             try:
                 options = Options()
                 # Keep existing options from init_firefox_driver
@@ -563,15 +592,24 @@ class DriverPool:
                 options.add_argument("--height=900")
 
                 driver = webdriver.Firefox(options=options)
-                driver._wappalyzer_extension_id = driver.install_addon(
-                    self.xpi_path,
-                    temporary=True,
-                )
+                with self.addon_lock:
+                    before_addons = _addon_temp_files()
+                    try:
+                        driver._wappalyzer_extension_id = driver.install_addon(
+                            self.xpi_path,
+                            temporary=True,
+                        )
+                    finally:
+                        created_addons = _addon_temp_files() - before_addons
+
+                    driver._wappalyzer_temp_addons = tuple(created_addons)
                 driver.set_page_load_timeout(self.timeout)
                 driver.set_script_timeout(max(5, min(self.timeout, 15)))
                 _get_extension_uuid(driver)
                 return driver
             except Exception as e:
+                if driver:
+                    _quit_driver(driver)
                 print(f"Attempt {attempt + 1} failed: {str(e)}", file=sys.stderr)
                 time.sleep(1)
                 

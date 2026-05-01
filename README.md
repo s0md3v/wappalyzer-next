@@ -85,6 +85,7 @@ Some common usage examples are given below, refer to list of all options for mor
 - Set page-load timeout for full scans: `wappalyzer -i urls.txt -t 15`
 - Scan with authentication: `wappalyzer -i https://example.com -c "sessionid=abc123; token=xyz789"`
 - Export results to JSON: `wappalyzer -i https://example.com -oJ results.json`
+- Export JSON to stdout: `wappalyzer -i https://example.com -oJ`
 
 #### Options
 
@@ -97,9 +98,9 @@ Some common usage examples are given below, refer to list of all options for mor
   - `full`: Complete scan using wappalyzer extension
 - `-w, --workers`: Number of concurrent workers (default: 5; full scans are capped at 3)
 - `-t, --timeout`: Maximum seconds to wait for a page load in full scans (default: 30)
-- `-oJ`: JSON output file path
-- `-oC`: CSV output file path
-- `-oH`: HTML output file path
+- `-oJ [file]`: JSON output file path, or stdout when the file is omitted or set to `-`
+- `-oC [file]`: CSV output file path, or stdout when the file is omitted or set to `-`
+- `-oH [file]`: HTML output file path, or stdout when the file is omitted or set to `-`
 - `-c, --cookie`: Cookie header string for authenticated scans
 
 ## For Developers

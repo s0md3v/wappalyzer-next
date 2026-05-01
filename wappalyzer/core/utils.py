@@ -1,4 +1,6 @@
+import csv
 import json
+import sys
 from huepy import bold, green
 from wappalyzer.core.config import cat_db, groups_db, tech_db
 from wappalyzer.core.matcher import parse_pattern
@@ -397,15 +399,34 @@ def generate_html_report(data):
 
 def write_to_file(filepath, data, format='json'):
     if format == 'json':
-        with open(filepath, 'w+') as f:
-            json.dump(data, f)
+        if filepath == '-':
+            json.dump(data, sys.stdout)
+            sys.stdout.write('\n')
+        else:
+            with open(filepath, 'w+') as f:
+                json.dump(data, f)
     elif format == 'csv':
-        url = list(data.keys())[0]
-        with open(filepath, 'w+') as f:
-            for tech, tech_data in data[url].items():
-                csv_data = url + ',' + tech + ',' + tech_data['version'] + ',' + str(tech_data['confidence']) + ',' + ' '.join(tech_data['categories']) + ',' + ' '.join(tech_data['groups']) + '\n'
-                f.write(csv_data)
+        output = sys.stdout if filepath == '-' else open(filepath, 'w+', newline='')
+        try:
+            writer = csv.writer(output)
+            for url, technologies in data.items():
+                for tech, tech_data in technologies.items():
+                    writer.writerow([
+                        url,
+                        tech,
+                        tech_data['version'],
+                        tech_data['confidence'],
+                        ' '.join(tech_data['categories']),
+                        ' '.join(tech_data['groups']),
+                    ])
+        finally:
+            if filepath != '-':
+                output.close()
     elif format == 'html':
         html_content = generate_html_report(data)
-        with open(filepath, 'w', encoding='utf-8') as f:
-            f.write(html_content)
+        if filepath == '-':
+            sys.stdout.write(html_content)
+            sys.stdout.write('\n')
+        else:
+            with open(filepath, 'w', encoding='utf-8') as f:
+                f.write(html_content)

@@ -14,37 +14,41 @@ foo\\1   Returns foo with the first match appended.
 """
 
 def group_or_literal(option, match):
-    if option.startswith('\\'):
-        return match.group(int(option[1:])) or ''
-    return option
+    def replace_group(group_match):
+        try:
+            return match.group(int(group_match.group(1))) or ''
+        except (IndexError, ValueError):
+            return ''
+
+    return re.sub(r'\\(\d+)', replace_group, option)
 
 def get_version(match, version_type):
     version = ''
     if version_type == '':
         return version
-    if version_type.endswith(':'): # \\1?a:
-        if match.group(1):
-            version = group_or_literal(version_type.split('?')[-1].split(':')[0], match)
-    elif '?:' in version_type: # \\1?:b'
-        if not match.group(1):
-            version = group_or_literal(version_type.split(':')[-1], match)
-        else:
-            version = ''
-    elif ('?' and ':') in version_type: # \\1?a:b
-        if match.group(1):
-            version = group_or_literal(version_type.split('?')[-1].split(':')[0], match)
-        else:
-            version = group_or_literal(version_type.split(':')[-1], match)
-    elif '\\' in version_type: # foo\\1
-        if version_type.startswith('\\'):
-            version = group_or_literal(version_type, match)
-        else:
-            version = version_type.split('\\')[0] + match.group(1)
+    if '?:' in version_type: # \\1?:b
+        condition, fallback = version_type.split('?:', 1)
+        if not group_or_literal(condition, match):
+            version = group_or_literal(fallback, match)
+    elif '?' in version_type and ':' in version_type: # \\1?a:b or \\1?a:
+        condition, choices = version_type.split('?', 1)
+        truthy, falsy = choices.split(':', 1)
+        version = group_or_literal(
+            truthy if group_or_literal(condition, match) else falsy,
+            match,
+        )
     else:
-        return version
+        version = group_or_literal(version_type, match)
     if version:
         version = re.split(r'[\)\]\},]', version.replace('\'', '').replace('"', ''))[0]
     return version
+
+def normalize_match_value(value):
+    if isinstance(value, bool):
+        return str(value).lower()
+    if value is None:
+        return ''
+    return str(value)
 
 def parse_pattern(regex):
     confidence = 100
@@ -74,12 +78,17 @@ def single_match(regex, string):
     return False, '', 0
 
 def match(regex, string):
-    to_match = [string] if isinstance(string, str) else string
+    if isinstance(string, (list, tuple, set)):
+        to_match = string
+    else:
+        to_match = [string]
     best_match = False
     best_version = ''
     best_confidence = 0
 
     for s in to_match:
+        if not isinstance(s, str):
+            s = normalize_match_value(s)
         regexes = [regex] if isinstance(regex, str) else regex
         for r in regexes:
             this_match, version, confidence = single_match(r, s)
