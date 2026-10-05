@@ -25,9 +25,18 @@ python -m playwright install-deps chromium
 
 
 #### Install as a command-line tool
+pipx
+
 ```bash
 pipx install wappalyzer
 pipx run --spec playwright playwright install chromium
+```
+
+uv
+
+```bash
+uv tool install wappalyzer
+uv tool run --from wappalyzer python -m playwright install chromium
 ```
 
 #### Install as a library
